@@ -118,6 +118,8 @@ export interface Resource {
   first_discovered_at: string;
   last_seen_at: string;
   seen_count: number;
+  deleted_at: string | null;
+  is_deleted: boolean;
   organization: number;
 }
 
@@ -145,7 +147,55 @@ export interface ResourceSighting {
   metrics: Record<string, unknown>;
 }
 
+
+// -- Drift ---------------------------------------------------------------
+export type DriftType = 'modified' | 'deleted' | 'restored';
+
+export interface DriftChange {
+  from: unknown;
+  to: unknown;
+}
+
+export interface ResourceDrift {
+  id: string;
+  resource: string;
+  resource_name: string;
+  resource_type_slug: string;
+  provider_name: string;
+  collection_run: string;
+  collection_run_started_at: string;
+  previous_collection_run: string | null;
+  previous_collection_run_started_at: string | null;
+  drift_type: DriftType;
+  detected_at: string;
+  changes: Record<string, DriftChange>;
+}
+
 // ?? Taxonomy ??????????????????????????????????????????????????????????????
+
+
+// -- Drift ------------------------------------------------------------------
+export type DriftType = 'modified' | 'deleted' | 'restored';
+
+export interface DriftChange {
+  from: unknown;
+  to: unknown;
+}
+
+export interface ResourceDrift {
+  id: string;
+  resource: string;
+  resource_name: string;
+  resource_type_slug: string;
+  provider_name: string;
+  collection_run: string;
+  collection_run_started_at: string;
+  previous_collection_run: string | null;
+  previous_collection_run_started_at: string | null;
+  drift_type: DriftType;
+  detected_at: string;
+  changes: Record<string, DriftChange>;
+}
 
 export interface ResourceCategory {
   id: string;
@@ -218,7 +268,7 @@ export interface PluginTestResult {
 
 export const api = {
 
-  // Providers Ñ full CRUD + collect
+  // Providers ï¿½ full CRUD + collect
   listProviders: () =>
     request<PaginatedResponse<Provider>>('/providers/'),
   getProvider: (id: string) =>
@@ -244,7 +294,7 @@ export const api = {
       body: JSON.stringify({}),
     }),
 
-  // Collection runs Ñ read-only + cancel
+  // Collection runs ï¿½ read-only + cancel
   listCollectionRuns: (page = 1) =>
     request<PaginatedResponse<CollectionRun>>('/collection-runs/?page=' + page),
   getCollectionRun: (id: string) =>
@@ -254,7 +304,7 @@ export const api = {
       method: 'POST',
     }),
 
-  // Resources Ñ read-only + sightings + history
+  // Resources ï¿½ read-only + sightings + history
   listResources: (params?: string) =>
     request<PaginatedResponse<Resource>>('/resources/' + (params ? '?' + params : '')),
   getResource: (id: string) =>
@@ -264,13 +314,13 @@ export const api = {
   getResourceHistory: (id: string) =>
     request<PaginatedResponse<ResourceSighting>>('/resources/' + id + '/history/'),
 
-  // Resource relationships Ñ read-only
+  // Resource relationships ï¿½ read-only
   listResourceRelationships: (params?: string) =>
     request<PaginatedResponse<ResourceRelationship>>('/resource-relationships/' + (params ? '?' + params : '')),
   getResourceRelationship: (id: string) =>
     request<ResourceRelationship>('/resource-relationships/' + id + '/'),
 
-  // Taxonomy Ñ read-only
+  // Taxonomy ï¿½ read-only
   listResourceCategories: () =>
     request<PaginatedResponse<ResourceCategory>>('/resource-categories/'),
   getResourceCategory: (id: string) =>
@@ -291,7 +341,7 @@ export const api = {
   getPropertyDefinition: (id: string) =>
     request<PropertyDefinition>('/property-definitions/' + id + '/'),
 
-  // Provider plugins Ñ list, retrieve, upload, uninstall, test, refresh
+  // Provider plugins ï¿½ list, retrieve, upload, uninstall, test, refresh
   listPlugins: () =>
     request<ProviderPlugin[]>('/provider-plugins/'),
   getPlugin: (key: string) =>
@@ -308,6 +358,21 @@ export const api = {
     request<{ detail: string; providers: ProviderPlugin[] }>('/provider-plugins/refresh/', {
       method: 'POST',
     }),
+
+  // Drift -- read-only
+  getResourceDrift: (resourceId: string, params?: string) =>
+    request<PaginatedResponse<ResourceDrift>>(
+      '/resources/' + resourceId + '/drift/' + (params ? '?' + params : '')
+    ),
+  listResourceDrift: (params?: string) =>
+    request<PaginatedResponse<ResourceDrift>>('/resource-drift/' + (params ? '?' + params : '')),
+
+  // Drift -- read-only
+  listResourceDrift: (params?: string) =>
+    request<PaginatedResponse<ResourceDrift>>('/resource-drift/' + (params ? '?' + params : '')),
+  getResourceDrift: (resourceId: string, params?: string) =>
+    request<PaginatedResponse<ResourceDrift>>('/resources/' + resourceId + '/drift/' + (params ? '?' + params : '')),
+
   uploadPlugin: (file: File, force = false): Promise<{ detail: string; plugin: ProviderPlugin }> => {
     const creds = localStorage.getItem('inventory_creds');
     const headers: Record<string, string> = {};

@@ -19,17 +19,62 @@ import {
   Td,
 } from '@patternfly/react-table';
 import { api } from '../../api/client';
-import type { Resource, ResourceType, ResourceCategory } from '../../api/client';
+import type { Resource, ResourceType, ResourceCategory, ResourceDrift, DriftType } from '../../api/client';
 import { usePolling } from '../../hooks/usePolling';
+import { DriftLabel, DriftModal } from '../../components/DriftModal';
 
-// ?? Column layouts per category ???????????????????????????????????????????
+// -- Drift state types -------------------------------------------------------
 
-function ComputeRow({ r }: { r: Resource }) {
-  const powerColor = (s: string) => s === 'on' || s === 'poweredOn' ? 'green' as const : s === 'off' || s === 'poweredOff' ? 'grey' as const : 'blue' as const;
-  const stateColor = (s: string) => s === 'active' || s === 'running' ? 'green' as const : s === 'error' || s === 'failed' ? 'red' as const : s === 'stopped' ? 'grey' as const : 'blue' as const;
+interface DriftInfo {
+  types: DriftType[];
+  events: ResourceDrift[];
+}
+
+// -- Drift badge + modal glue ------------------------------------------------
+
+interface WithDriftProps {
+  resource: Resource;
+  driftInfo: DriftInfo | undefined;
+}
+
+function DriftCell({ resource, driftInfo }: WithDriftProps) {
+  const [modalOpen, setModalOpen] = useState(false);
+
+  if (!driftInfo || driftInfo.types.length === 0) return null;
+
+  return (
+    <>
+      <DriftLabel
+        driftTypes={driftInfo.types}
+        onClick={() => setModalOpen(true)}
+      />
+      {modalOpen && (
+        <DriftModal
+          resourceId={resource.id}
+          resourceName={resource.name}
+          onClose={() => setModalOpen(false)}
+        />
+      )}
+    </>
+  );
+}
+
+// -- Column layouts per category ---------------------------------------------
+
+function ComputeRow({ r, driftInfo }: { r: Resource; driftInfo: DriftInfo | undefined }) {
+  const powerColor = (s: string) =>
+    s === 'on' || s === 'poweredOn' ? 'green' as const :
+    s === 'off' || s === 'poweredOff' ? 'grey' as const : 'blue' as const;
+  const stateColor = (s: string) =>
+    s === 'active' || s === 'running' ? 'green' as const :
+    s === 'error' || s === 'failed' ? 'red' as const :
+    s === 'stopped' ? 'grey' as const : 'blue' as const;
   return (
     <Tr key={r.id}>
-      <Td dataLabel="Name"><strong>{r.name}</strong></Td>
+      <Td dataLabel="Name">
+        <strong>{r.name}</strong>
+        <DriftCell resource={r} driftInfo={driftInfo} />
+      </Td>
       <Td dataLabel="Type">{r.vendor_type || r.resource_type_slug}</Td>
       <Td dataLabel="State">{r.state ? <Label color={stateColor(r.state)}>{r.state}</Label> : '-'}</Td>
       <Td dataLabel="Power">{r.power_state ? <Label color={powerColor(r.power_state)}>{r.power_state}</Label> : '-'}</Td>
@@ -42,7 +87,7 @@ function ComputeRow({ r }: { r: Resource }) {
   );
 }
 
-function ComputeTable({ resources }: { resources: Resource[] }) {
+function ComputeTable({ resources, driftMap }: { resources: Resource[]; driftMap: Map<string, DriftInfo> }) {
   return (
     <Table aria-label="Compute" variant="compact">
       <Thead><Tr>
@@ -56,20 +101,24 @@ function ComputeTable({ resources }: { resources: Resource[] }) {
         <Th width={15}>IP Addresses</Th>
         <Th width={10}>Region</Th>
       </Tr></Thead>
-      <Tbody>{resources.map((r) => <ComputeRow key={r.id} r={r} />)}</Tbody>
+      <Tbody>{resources.map((r) => <ComputeRow key={r.id} r={r} driftInfo={driftMap.get(r.id)} />)}</Tbody>
     </Table>
   );
 }
 
-function StorageRow({ r }: { r: Resource }) {
-  const stateColor = (s: string) => s === 'active' ? 'green' as const : s === 'error' ? 'red' as const : 'grey' as const;
+function StorageRow({ r, driftInfo }: { r: Resource; driftInfo: DriftInfo | undefined }) {
+  const stateColor = (s: string) =>
+    s === 'active' ? 'green' as const : s === 'error' ? 'red' as const : 'grey' as const;
   const props = r.properties as Record<string, number | string> ?? {};
   const capacityGb = props.capacity_gb as number ?? r.disk_gb;
   const freeGb = props.free_space_gb as number ?? null;
   const provPct = props.provisioned_pct as number ?? null;
   return (
     <Tr key={r.id}>
-      <Td dataLabel="Name"><strong>{r.name}</strong></Td>
+      <Td dataLabel="Name">
+        <strong>{r.name}</strong>
+        <DriftCell resource={r} driftInfo={driftInfo} />
+      </Td>
       <Td dataLabel="Type">{r.vendor_type || r.resource_type_slug}</Td>
       <Td dataLabel="State">{r.state ? <Label color={stateColor(r.state)}>{r.state}</Label> : '-'}</Td>
       <Td dataLabel="Capacity">{capacityGb ? capacityGb + ' GB' : '-'}</Td>
@@ -81,7 +130,7 @@ function StorageRow({ r }: { r: Resource }) {
   );
 }
 
-function StorageTable({ resources }: { resources: Resource[] }) {
+function StorageTable({ resources, driftMap }: { resources: Resource[]; driftMap: Map<string, DriftInfo> }) {
   return (
     <Table aria-label="Storage" variant="compact">
       <Thead><Tr>
@@ -94,16 +143,20 @@ function StorageTable({ resources }: { resources: Resource[] }) {
         <Th width={12}>Provisioned</Th>
         <Th width={15}>Region</Th>
       </Tr></Thead>
-      <Tbody>{resources.map((r) => <StorageRow key={r.id} r={r} />)}</Tbody>
+      <Tbody>{resources.map((r) => <StorageRow key={r.id} r={r} driftInfo={driftMap.get(r.id)} />)}</Tbody>
     </Table>
   );
 }
 
-function NetworkingRow({ r }: { r: Resource }) {
-  const stateColor = (s: string) => s === 'active' ? 'green' as const : s === 'error' ? 'red' as const : 'grey' as const;
+function NetworkingRow({ r, driftInfo }: { r: Resource; driftInfo: DriftInfo | undefined }) {
+  const stateColor = (s: string) =>
+    s === 'active' ? 'green' as const : s === 'error' ? 'red' as const : 'grey' as const;
   return (
     <Tr key={r.id}>
-      <Td dataLabel="Name"><strong>{r.name}</strong></Td>
+      <Td dataLabel="Name">
+        <strong>{r.name}</strong>
+        <DriftCell resource={r} driftInfo={driftInfo} />
+      </Td>
       <Td dataLabel="Type">{r.vendor_type || r.resource_type_slug}</Td>
       <Td dataLabel="State">{r.state ? <Label color={stateColor(r.state)}>{r.state}</Label> : '-'}</Td>
       <Td dataLabel="Region">{r.region || '-'}</Td>
@@ -113,7 +166,7 @@ function NetworkingRow({ r }: { r: Resource }) {
   );
 }
 
-function NetworkingTable({ resources }: { resources: Resource[] }) {
+function NetworkingTable({ resources, driftMap }: { resources: Resource[]; driftMap: Map<string, DriftInfo> }) {
   return (
     <Table aria-label="Networking" variant="compact">
       <Thead><Tr>
@@ -124,16 +177,21 @@ function NetworkingTable({ resources }: { resources: Resource[] }) {
         <Th width={15}>Zone</Th>
         <Th width={15}>Tenant</Th>
       </Tr></Thead>
-      <Tbody>{resources.map((r) => <NetworkingRow key={r.id} r={r} />)}</Tbody>
+      <Tbody>{resources.map((r) => <NetworkingRow key={r.id} r={r} driftInfo={driftMap.get(r.id)} />)}</Tbody>
     </Table>
   );
 }
 
-function GenericRow({ r }: { r: Resource }) {
-  const stateColor = (s: string) => s === 'active' || s === 'running' ? 'green' as const : s === 'error' || s === 'failed' ? 'red' as const : 'grey' as const;
+function GenericRow({ r, driftInfo }: { r: Resource; driftInfo: DriftInfo | undefined }) {
+  const stateColor = (s: string) =>
+    s === 'active' || s === 'running' ? 'green' as const :
+    s === 'error' || s === 'failed' ? 'red' as const : 'grey' as const;
   return (
     <Tr key={r.id}>
-      <Td dataLabel="Name"><strong>{r.name}</strong></Td>
+      <Td dataLabel="Name">
+        <strong>{r.name}</strong>
+        <DriftCell resource={r} driftInfo={driftInfo} />
+      </Td>
       <Td dataLabel="Type">{r.vendor_type || r.resource_type_slug}</Td>
       <Td dataLabel="State">{r.state ? <Label color={stateColor(r.state)}>{r.state}</Label> : '-'}</Td>
       <Td dataLabel="Region">{r.region || '-'}</Td>
@@ -143,7 +201,7 @@ function GenericRow({ r }: { r: Resource }) {
   );
 }
 
-function GenericTable({ resources, label }: { resources: Resource[]; label: string }) {
+function GenericTable({ resources, label, driftMap }: { resources: Resource[]; label: string; driftMap: Map<string, DriftInfo> }) {
   return (
     <Table aria-label={label} variant="compact">
       <Thead><Tr>
@@ -154,17 +212,18 @@ function GenericTable({ resources, label }: { resources: Resource[]; label: stri
         <Th width={15}>First Discovered</Th>
         <Th width={15}>Last Seen</Th>
       </Tr></Thead>
-      <Tbody>{resources.map((r) => <GenericRow key={r.id} r={r} />)}</Tbody>
+      <Tbody>{resources.map((r) => <GenericRow key={r.id} r={r} driftInfo={driftMap.get(r.id)} />)}</Tbody>
     </Table>
   );
 }
 
-// ?? Page ??????????????????????????????????????????????????????????????????
+// -- Page --------------------------------------------------------------------
 
 export default function InventoryList() {
   const { providerId, categorySlug } = useParams<{ providerId: string; categorySlug: string }>();
   const [category, setCategory] = useState<ResourceCategory | null>(null);
   const [typeIds, setTypeIds] = useState<Set<string> | null>(null);
+  const [driftMap, setDriftMap] = useState<Map<string, DriftInfo>>(new Map());
 
   useEffect(() => {
     if (!categorySlug) return;
@@ -185,6 +244,27 @@ export default function InventoryList() {
     });
   }, [categorySlug]);
 
+  // Fetch drift summary for all resources in this provider (one bulk call)
+  useEffect(() => {
+    if (!providerId) return;
+    api.listResourceDrift('resource__provider=' + providerId + '&page_size=500')
+      .then((r) => {
+        const map = new Map<string, DriftInfo>();
+        for (const ev of r.results) {
+          const existing = map.get(ev.resource) ?? { types: [], events: [] };
+          if (!existing.types.includes(ev.drift_type)) {
+            existing.types.push(ev.drift_type);
+          }
+          existing.events.push(ev);
+          map.set(ev.resource, existing);
+        }
+        setDriftMap(map);
+      })
+      .catch(() => {
+        // drift is non-critical; silently ignore errors
+      });
+  }, [providerId]);
+
   const fetchResources = useCallback(() => {
     if (!providerId) return Promise.resolve({ count: 0, next: null, previous: null, results: [] });
     return api.listResources('page_size=500');
@@ -192,10 +272,11 @@ export default function InventoryList() {
 
   const { data, loading } = usePolling(fetchResources, 30000);
 
-  const resources: Resource[] = (data?.results ?? []).filter((r) => r.provider === providerId &&
-    (typeIds ? typeIds.has(r.resource_type) : true)
+  const resources: Resource[] = (data?.results ?? []).filter(
+    (r) => r.provider === providerId && (typeIds ? typeIds.has(r.resource_type) : true)
   );
 
+  const driftCount = resources.filter((r) => driftMap.has(r.id)).length;
   const categoryTitle = category?.name ?? categorySlug ?? 'Resources';
 
   if (loading && !data) {
@@ -208,6 +289,15 @@ export default function InventoryList() {
         <Title headingLevel="h1" size="2xl">{categoryTitle}</Title>
         <p style={{ marginTop: '0.5rem', color: 'var(--pf-v5-global--Color--200)' }}>
           {resources.length} {categoryTitle.toLowerCase()} discovered
+          {driftCount > 0 && (
+            <Label
+              color="orange"
+              isCompact
+              style={{ marginLeft: '0.75rem' }}
+            >
+              {driftCount} with drift
+            </Label>
+          )}
           {loading && <span style={{ marginLeft: '0.5rem', fontSize: '0.8rem' }}>refreshing...</span>}
         </p>
       </PageSection>
@@ -220,13 +310,13 @@ export default function InventoryList() {
             </EmptyStateBody>
           </EmptyState>
         ) : categorySlug === 'compute' ? (
-          <ComputeTable resources={resources} />
+          <ComputeTable resources={resources} driftMap={driftMap} />
         ) : categorySlug === 'storage' ? (
-          <StorageTable resources={resources} />
+          <StorageTable resources={resources} driftMap={driftMap} />
         ) : categorySlug === 'networking' ? (
-          <NetworkingTable resources={resources} />
+          <NetworkingTable resources={resources} driftMap={driftMap} />
         ) : (
-          <GenericTable resources={resources} label={categoryTitle} />
+          <GenericTable resources={resources} label={categoryTitle} driftMap={driftMap} />
         )}
       </PageSection>
     </>
