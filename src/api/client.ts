@@ -367,12 +367,6 @@ export const api = {
   listResourceDrift: (params?: string) =>
     request<PaginatedResponse<ResourceDrift>>('/resource-drift/' + (params ? '?' + params : '')),
 
-  // Drift -- read-only
-  listResourceDrift: (params?: string) =>
-    request<PaginatedResponse<ResourceDrift>>('/resource-drift/' + (params ? '?' + params : '')),
-  getResourceDrift: (resourceId: string, params?: string) =>
-    request<PaginatedResponse<ResourceDrift>>('/resources/' + resourceId + '/drift/' + (params ? '?' + params : '')),
-
   uploadPlugin: (file: File, force = false): Promise<{ detail: string; plugin: ProviderPlugin }> => {
     const creds = localStorage.getItem('inventory_creds');
     const headers: Record<string, string> = {};
