@@ -36,8 +36,7 @@ interface CategoryCount {
 function ProviderNavSection({ provider }: { provider: Provider }) {
   const params = useParams();
   const [categoryCounts, setCategoryCounts] = useState<CategoryCount[]>([]);
-  const [categories, setCategories] = useState<ResourceCategory[]>([]);
-
+  
   useEffect(() => {
     // Fetch categories and resources in parallel
     // Use resource_type_slug on each resource to look up category via type slug map
@@ -46,7 +45,6 @@ function ProviderNavSection({ provider }: { provider: Provider }) {
       api.listResourceTypes('page_size=200'),
       api.listResources('page_size=500'),
     ]).then(([cats, types, resources]) => {
-      setCategories(cats.results);
 
       // Build slug -> category_slug map
       const typeSlugToCategory: Record<string, string> = {};
@@ -174,7 +172,7 @@ function AppLayout() {
   );
 
   return (
-    <Page masthead={masthead} sidebar={sidebar}>
+    <Page header={masthead} sidebar={sidebar}>
       <Routes>
         <Route path="/providers" element={<ProvidersPage />} />
         <Route path="/collection-runs" element={<CollectionRunsPage />} />

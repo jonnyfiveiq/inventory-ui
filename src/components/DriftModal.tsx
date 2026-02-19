@@ -2,9 +2,6 @@ import { useEffect, useState } from 'react';
 import {
   Button,
   Modal,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
   Spinner,
   Label,
   Flex,
@@ -28,7 +25,7 @@ import type { ResourceDrift, DriftType } from '../api/client';
 // ---------------------------------------------------------------------------
 
 function fmt(iso: string | null): string {
-  if (!iso) return '—';
+  if (!iso) return '\u2014';
   return new Date(iso).toLocaleString(undefined, {
     month: 'short', day: 'numeric', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
@@ -50,24 +47,19 @@ const DRIFT_META: Record<DriftType, { color: DriftColor; icon: React.ReactElemen
 };
 
 // ---------------------------------------------------------------------------
-// DriftEvent — the change detail card for a single drift event
+// DriftEvent
 // ---------------------------------------------------------------------------
 
 function DriftEvent({ event }: { event: ResourceDrift }) {
   const meta = DRIFT_META[event.drift_type];
   const changeEntries = Object.entries(event.changes);
+  const borderColor = meta.color === 'orange' ? '#f0ab00' : meta.color === 'red' ? '#c9190b' : '#3e8635';
 
   return (
-    <div style={{
-      marginBottom: '0.75rem',
-      borderLeft: `3px solid var(--pf-v5-global--${meta.color === 'orange' ? 'warning' : meta.color === 'red' ? 'danger' : 'success'}--Color--100, #888)`,
-      paddingLeft: '0.75rem',
-    }}>
+    <div style={{ marginBottom: '0.75rem', borderLeft: `3px solid ${borderColor}`, paddingLeft: '0.75rem' }}>
       <Flex alignItems={{ default: 'alignItemsCenter' }} spaceItems={{ default: 'spaceItemsSm' }}>
         <FlexItem>
-          <Label color={meta.color} icon={meta.icon} isCompact>
-            {meta.label}
-          </Label>
+          <Label color={meta.color} icon={meta.icon} isCompact>{meta.label}</Label>
         </FlexItem>
         <FlexItem>
           <span style={{ fontSize: '0.8rem', color: 'var(--pf-v5-global--Color--200)' }}>
@@ -77,12 +69,7 @@ function DriftEvent({ event }: { event: ResourceDrift }) {
       </Flex>
 
       {event.drift_type === 'modified' && changeEntries.length > 0 && (
-        <table style={{
-          marginTop: '0.5rem',
-          width: '100%',
-          fontSize: '0.82rem',
-          borderCollapse: 'collapse',
-        }}>
+        <table style={{ marginTop: '0.5rem', width: '100%', fontSize: '0.82rem', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ borderBottom: '1px solid var(--pf-v5-global--BorderColor--100)' }}>
               <th style={{ textAlign: 'left', padding: '2px 8px 2px 0', color: 'var(--pf-v5-global--Color--200)', fontWeight: 500 }}>Field</th>
@@ -94,12 +81,8 @@ function DriftEvent({ event }: { event: ResourceDrift }) {
             {changeEntries.map(([field, change]) => (
               <tr key={field}>
                 <td style={{ padding: '3px 8px 3px 0', fontFamily: 'monospace', fontWeight: 600 }}>{field}</td>
-                <td style={{ padding: '3px 8px', color: 'var(--pf-v5-global--danger--Color--100)', fontFamily: 'monospace' }}>
-                  {fmtVal(change.from)}
-                </td>
-                <td style={{ padding: '3px 0', color: 'var(--pf-v5-global--success--Color--100)', fontFamily: 'monospace' }}>
-                  {fmtVal(change.to)}
-                </td>
+                <td style={{ padding: '3px 8px', color: '#c9190b', fontFamily: 'monospace' }}>{fmtVal(change.from)}</td>
+                <td style={{ padding: '3px 0', color: '#3e8635', fontFamily: 'monospace' }}>{fmtVal(change.to)}</td>
               </tr>
             ))}
           </tbody>
@@ -108,7 +91,7 @@ function DriftEvent({ event }: { event: ResourceDrift }) {
 
       {(event.drift_type === 'deleted' || event.drift_type === 'restored') && changeEntries.length > 0 && (
         <div style={{ marginTop: '0.4rem', fontSize: '0.8rem', color: 'var(--pf-v5-global--Color--200)' }}>
-          Snapshot: {changeEntries.map(([k, v]) => `${k}=${fmtVal(v.to ?? v.from)}`).join(' · ')}
+          Snapshot: {changeEntries.map(([k, v]) => `${k}=${fmtVal(v.to ?? v.from)}`).join(' \u00b7 ')}
         </div>
       )}
     </div>
@@ -116,17 +99,15 @@ function DriftEvent({ event }: { event: ResourceDrift }) {
 }
 
 // ---------------------------------------------------------------------------
-// TimelineEntry — one collection run on the timeline
+// TimelineEntry
 // ---------------------------------------------------------------------------
 
-interface TimelineEntryProps {
+function TimelineEntry({ runId, runStartedAt, events, isLast }: {
   runId: string;
   runStartedAt: string;
   events: ResourceDrift[];
   isLast: boolean;
-}
-
-function TimelineEntry({ runId, runStartedAt, events, isLast }: TimelineEntryProps) {
+}) {
   const hasEvents = events.length > 0;
   const dotColor = hasEvents
     ? events.some(e => e.drift_type === 'deleted') ? '#c9190b'
@@ -136,33 +117,16 @@ function TimelineEntry({ runId, runStartedAt, events, isLast }: TimelineEntryPro
 
   return (
     <div style={{ display: 'flex', gap: '1rem', marginBottom: isLast ? 0 : '1.5rem' }}>
-      {/* Timeline spine */}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0, width: 16 }}>
-        <div style={{
-          width: 14, height: 14, borderRadius: '50%',
-          backgroundColor: dotColor,
-          border: `2px solid ${dotColor}`,
-          flexShrink: 0,
-          marginTop: 3,
-        }} />
-        {!isLast && (
-          <div style={{
-            width: 2, flex: 1, minHeight: 20,
-            backgroundColor: 'var(--pf-v5-global--BorderColor--100)',
-            marginTop: 4,
-          }} />
-        )}
+        <div style={{ width: 14, height: 14, borderRadius: '50%', backgroundColor: dotColor, border: `2px solid ${dotColor}`, flexShrink: 0, marginTop: 3 }} />
+        {!isLast && <div style={{ width: 2, flex: 1, minHeight: 20, backgroundColor: 'var(--pf-v5-global--BorderColor--100)', marginTop: 4 }} />}
       </div>
-
-      {/* Content */}
       <div style={{ flex: 1, paddingBottom: isLast ? 0 : '0.5rem' }}>
         <div style={{ marginBottom: '0.4rem' }}>
-          <span style={{ fontWeight: 600, fontSize: '0.875rem' }}>
-            {fmt(runStartedAt)}
-          </span>
+          <span style={{ fontWeight: 600, fontSize: '0.875rem' }}>{fmt(runStartedAt)}</span>
           {!hasEvents && (
             <span style={{ marginLeft: '0.75rem', fontSize: '0.8rem', color: 'var(--pf-v5-global--Color--200)' }}>
-              <CheckCircleIcon style={{ marginRight: 4, color: 'var(--pf-v5-global--success--Color--100)' }} />
+              <CheckCircleIcon style={{ marginRight: 4, color: '#3e8635' }} />
               No drift
             </span>
           )}
@@ -170,17 +134,14 @@ function TimelineEntry({ runId, runStartedAt, events, isLast }: TimelineEntryPro
             {runId.slice(0, 8)}
           </span>
         </div>
-
-        {events.map((e) => (
-          <DriftEvent key={e.id} event={e} />
-        ))}
+        {events.map((e) => <DriftEvent key={e.id} event={e} />)}
       </div>
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// DriftModal — the main export
+// DriftModal
 // ---------------------------------------------------------------------------
 
 interface DriftModalProps {
@@ -203,7 +164,6 @@ export function DriftModal({ resourceId, resourceName, onClose }: DriftModalProp
       .finally(() => setLoading(false));
   }, [resourceId]);
 
-  // Group events by collection_run, preserving insertion order (API returns newest-first)
   const runOrder: string[] = [];
   const byRun: Record<string, { startedAt: string; events: ResourceDrift[] }> = {};
   for (const ev of driftEvents) {
@@ -218,83 +178,66 @@ export function DriftModal({ resourceId, resourceName, onClose }: DriftModalProp
   const deletedCount  = driftEvents.filter(e => e.drift_type === 'deleted').length;
   const restoredCount = driftEvents.filter(e => e.drift_type === 'restored').length;
 
+  const summaryBadges = !loading && !error && driftEvents.length > 0 ? (
+    <Flex spaceItems={{ default: 'spaceItemsMd' }} style={{ marginTop: '0.25rem' }}>
+      {modifiedCount > 0 && <FlexItem><Label color="orange" icon={<ExclamationTriangleIcon />} isCompact>{modifiedCount} modified</Label></FlexItem>}
+      {deletedCount > 0  && <FlexItem><Label color="red"    icon={<TrashIcon />}               isCompact>{deletedCount} deleted</Label></FlexItem>}
+      {restoredCount > 0 && <FlexItem><Label color="green"  icon={<ArrowCircleUpIcon />}        isCompact>{restoredCount} restored</Label></FlexItem>}
+    </Flex>
+  ) : undefined;
+
+  const body = (
+    <div>
+      {summaryBadges && <div style={{ marginBottom: '1rem' }}>{summaryBadges}</div>}
+
+      {loading && <div style={{ textAlign: 'center', padding: '2rem' }}><Spinner size="lg" /></div>}
+
+      {error && (
+        <EmptyState variant={EmptyStateVariant.sm}>
+          <Title headingLevel="h3" size="md">Failed to load drift history</Title>
+          <EmptyStateBody>{error}</EmptyStateBody>
+        </EmptyState>
+      )}
+
+      {!loading && !error && driftEvents.length === 0 && (
+        <EmptyState variant={EmptyStateVariant.sm}>
+          <Title headingLevel="h3" size="md">No drift detected</Title>
+          <EmptyStateBody>This resource has not changed between any collection runs.</EmptyStateBody>
+        </EmptyState>
+      )}
+
+      {!loading && !error && runOrder.length > 0 && (
+        <div style={{ padding: '0.25rem 0' }}>
+          {runOrder.map((runId, idx) => (
+            <TimelineEntry
+              key={runId}
+              runId={runId}
+              runStartedAt={byRun[runId].startedAt}
+              events={byRun[runId].events}
+              isLast={idx === runOrder.length - 1}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <Modal
       isOpen
       onClose={onClose}
       variant="medium"
+      title={`Drift history \u2014 ${resourceName}`}
       aria-label={`Drift history for ${resourceName}`}
+      footer={<Button variant="primary" onClick={onClose}>Close</Button>}
     >
-      <ModalHeader
-        title={`Drift history — ${resourceName}`}
-        description={
-          !loading && !error && driftEvents.length > 0 ? (
-            <Flex spaceItems={{ default: 'spaceItemsMd' }} style={{ marginTop: '0.25rem' }}>
-              {modifiedCount > 0 && (
-                <FlexItem>
-                  <Label color="orange" icon={<ExclamationTriangleIcon />} isCompact>{modifiedCount} modified</Label>
-                </FlexItem>
-              )}
-              {deletedCount > 0 && (
-                <FlexItem>
-                  <Label color="red" icon={<TrashIcon />} isCompact>{deletedCount} deleted</Label>
-                </FlexItem>
-              )}
-              {restoredCount > 0 && (
-                <FlexItem>
-                  <Label color="green" icon={<ArrowCircleUpIcon />} isCompact>{restoredCount} restored</Label>
-                </FlexItem>
-              )}
-            </Flex>
-          ) : undefined
-        }
-      />
-      <ModalBody>
-        {loading && (
-          <div style={{ textAlign: 'center', padding: '2rem' }}>
-            <Spinner size="lg" />
-          </div>
-        )}
-
-        {error && (
-          <EmptyState variant={EmptyStateVariant.sm}>
-            <Title headingLevel="h3" size="md">Failed to load drift history</Title>
-            <EmptyStateBody>{error}</EmptyStateBody>
-          </EmptyState>
-        )}
-
-        {!loading && !error && driftEvents.length === 0 && (
-          <EmptyState variant={EmptyStateVariant.sm}>
-            <Title headingLevel="h3" size="md">No drift detected</Title>
-            <EmptyStateBody>
-              This resource has not changed between any collection runs.
-            </EmptyStateBody>
-          </EmptyState>
-        )}
-
-        {!loading && !error && runOrder.length > 0 && (
-          <div style={{ padding: '0.25rem 0' }}>
-            {runOrder.map((runId, idx) => (
-              <TimelineEntry
-                key={runId}
-                runId={runId}
-                runStartedAt={byRun[runId].startedAt}
-                events={byRun[runId].events}
-                isLast={idx === runOrder.length - 1}
-              />
-            ))}
-          </div>
-        )}
-      </ModalBody>
-      <ModalFooter>
-        <Button variant="primary" onClick={onClose}>Close</Button>
-      </ModalFooter>
+      {body}
     </Modal>
   );
 }
 
 // ---------------------------------------------------------------------------
-// DriftLabel — badge shown inline on resource rows
+// DriftLabel
 // ---------------------------------------------------------------------------
 
 interface DriftLabelProps {

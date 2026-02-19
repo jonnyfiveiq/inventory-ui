@@ -7,7 +7,6 @@ import {
   ExclamationCircleIcon,
   BanIcon,
   ClockIcon,
-  SyncAltIcon,
 } from '@patternfly/react-icons';
 import type { CollectionStatus } from '../api/client';
 

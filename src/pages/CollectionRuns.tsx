@@ -9,7 +9,6 @@ import {
   EmptyStateFooter,
   EmptyStateVariant,
   PageSection,
-  Spinner,
   Title,
   Toolbar,
   ToolbarContent,
@@ -87,7 +86,7 @@ export default function CollectionRunsPage() {
         </Toolbar>
 
         {loading && !data ? (
-          <Bullseye><spinner size="xl" /></Bullseye>
+          <Bullseye><Spinner size="xl" /></Bullseye>
         ) : runs.length === 0 ? (
           <EmptyState variant={EmptyStateVariant.lg}>
             <Title headingLevel="h2" size="lg">No collection runs yet</Title>
