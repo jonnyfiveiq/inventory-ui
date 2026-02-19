@@ -40,6 +40,7 @@ interface AddState {
   uploadedPlugin: ProviderPlugin | null;
   name: string;
   endpoint: string;
+  infrastructure: string;
   enabled: boolean;
   username: string;
   password: string;
@@ -55,6 +56,7 @@ const defaultAddState = (): AddState => ({
   uploadedPlugin: null,
   name: '',
   endpoint: '',
+  infrastructure: 'private_cloud',
   enabled: true,
   username: '',
   password: '',
@@ -131,7 +133,7 @@ export default function ProvidersPage() {
     }
   };
 
-  // ?? Add: step 1 Ñ upload plugin ??
+  // ?? Add: step 1 Ã‘ upload plugin ??
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null;
@@ -160,7 +162,7 @@ export default function ProvidersPage() {
     }
   };
 
-  // ?? Add: step 2 Ñ create provider ??
+  // ?? Add: step 2 Ã‘ create provider ??
 
   const handleCreateProvider = async () => {
     if (!addState.uploadedPlugin) return;
@@ -170,6 +172,7 @@ export default function ProvidersPage() {
         name: addState.name,
         vendor: addState.uploadedPlugin.vendor,
         provider_type: addState.uploadedPlugin.provider_type,
+        infrastructure: addState.infrastructure,
         endpoint: addState.endpoint,
         enabled: addState.enabled,
         organization: 1,
@@ -285,7 +288,7 @@ export default function ProvidersPage() {
       {/* ?? Add Provider modal (step 1: upload) ?? */}
       <Modal
         variant={ModalVariant.medium}
-        title="Add Provider Ñ Step 1: Upload Plugin"
+        title="Add Provider Ã‘ Step 1: Upload Plugin"
         isOpen={showAdd && addState.step === 1}
         onClose={closeAdd}
         actions={[
@@ -353,7 +356,7 @@ export default function ProvidersPage() {
       {/* ?? Add Provider modal (step 2: configure) ?? */}
       <Modal
         variant={ModalVariant.medium}
-        title="Add Provider Ñ Step 2: Configure"
+        title="Add Provider Ã‘ Step 2: Configure"
         isOpen={showAdd && addState.step === 2}
         onClose={closeAdd}
         actions={[
@@ -401,6 +404,20 @@ export default function ProvidersPage() {
               onChange={(_e, v) => setAddState((s) => ({ ...s, endpoint: v }))}
               placeholder="e.g. https://vcenter.example.com"
             />
+          </FormGroup>
+          <FormGroup label="Infrastructure" isRequired fieldId="add-infrastructure">
+            <select
+              id="add-infrastructure"
+              value={addState.infrastructure}
+              onChange={(e) => setAddState((s) => ({ ...s, infrastructure: e.target.value }))}
+              style={{ width: '100%', height: '36px', padding: '0 8px', border: '1px solid var(--pf-v5-global--BorderColor--100)', borderRadius: '3px', background: 'var(--pf-v5-global--BackgroundColor--100)', color: 'var(--pf-v5-global--Color--100)' }}
+            >
+              <option value="private_cloud">Private Cloud</option>
+              <option value="public_cloud">Public Cloud</option>
+              <option value="on_premise">On Premise</option>
+              <option value="networking">Networking</option>
+              <option value="storage">Storage</option>
+            </select>
           </FormGroup>
           <FormGroup label="Username" fieldId="add-username">
             <TextInput
