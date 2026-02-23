@@ -13,6 +13,7 @@ import {
   Toolbar,
   ToolbarContent,
   ToolbarItem,
+  Spinner,
   Tooltip,
 } from '@patternfly/react-core';
 import { SyncAltIcon } from '@patternfly/react-icons';

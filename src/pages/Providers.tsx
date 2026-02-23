@@ -29,6 +29,7 @@ import {
   Td,
 } from '@patternfly/react-table';
 import { api } from '../api/client';
+import { ProviderGraphModal } from '../components/ProviderGraphModal';
 import type { Provider, ProviderPlugin, PaginatedResponse } from '../api/client';
 import { usePolling } from '../hooks/usePolling';
 
@@ -276,7 +277,10 @@ export default function ProvidersPage() {
                       : '-'}
                   </Td>
                   <Td isActionCell>
-                    <ActionsColumn items={rowActions(p)} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                      <ProviderGraphModal providerId={p.id} providerName={p.name} />
+                      <ActionsColumn items={rowActions(p)} />
+                    </div>
                   </Td>
                 </Tr>
               ))}

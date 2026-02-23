@@ -92,12 +92,12 @@ function ComputeTable({ resources, driftMap }: { resources: Resource[]; driftMap
     <Table aria-label="Compute" variant="compact">
       <Thead><Tr>
         <Th width={20}>Name</Th>
-        <Th width={12}>Type</Th>
-        <Th width={8}>State</Th>
+        <Th>Type</Th>
+        <Th>State</Th>
         <Th width={10}>Power</Th>
-        <Th width={5}>CPUs</Th>
-        <Th width={8}>Memory</Th>
-        <Th width={7}>Disk</Th>
+        <Th>CPUs</Th>
+        <Th>Memory</Th>
+        <Th>Disk</Th>
         <Th width={15}>IP Addresses</Th>
         <Th width={10}>Region</Th>
       </Tr></Thead>
@@ -136,11 +136,11 @@ function StorageTable({ resources, driftMap }: { resources: Resource[]; driftMap
       <Thead><Tr>
         <Th width={20}>Name</Th>
         <Th width={15}>Type</Th>
-        <Th width={8}>State</Th>
+        <Th>State</Th>
         <Th width={10}>Capacity</Th>
         <Th width={10}>Free Space</Th>
         <Th width={10}>Used</Th>
-        <Th width={12}>Provisioned</Th>
+        <Th>Provisioned</Th>
         <Th width={15}>Region</Th>
       </Tr></Thead>
       <Tbody>{resources.map((r) => <StorageRow key={r.id} r={r} driftInfo={driftMap.get(r.id)} />)}</Tbody>

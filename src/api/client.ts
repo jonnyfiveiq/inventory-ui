@@ -4,31 +4,25 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const headers: Record<string, string> = {
     ...(options?.headers as Record<string, string>),
   };
-
   const creds = localStorage.getItem('inventory_creds');
   if (creds) {
     headers['Authorization'] = 'Basic ' + btoa(creds);
   }
-
   const res = await fetch(API_BASE + path, {
     ...options,
     headers,
   });
-
   if (options?.method === 'DELETE' && res.status === 204) {
     return undefined as T;
   }
-
   if (!res.ok) {
     const text = await res.text();
     throw new Error(res.status + ' ' + res.statusText + ': ' + text);
   }
-
   return res.json();
 }
 
-// ?? Shared ????????????????????????????????????????????????????????????????
-
+// ── Shared ────────────────────────────────────────────────────────────────────
 export interface PaginatedResponse<T> {
   count: number;
   next: string | null;
@@ -36,8 +30,7 @@ export interface PaginatedResponse<T> {
   results: T[];
 }
 
-// ?? Providers ?????????????????????????????????????????????????????????????
-
+// ── Providers ─────────────────────────────────────────────────────────────────
 export interface Provider {
   id: string;
   name: string;
@@ -51,12 +44,12 @@ export interface Provider {
   connection_config: Record<string, unknown>;
   last_collection_status: string | null;
   last_refresh_at: string | null;
+  schedule_count: number;
   created: string;
   modified: string;
 }
 
-// ?? Collection Runs ???????????????????????????????????????????????????????
-
+// ── Collection Runs ───────────────────────────────────────────────────────────
 export type CollectionStatus = 'pending' | 'running' | 'completed' | 'failed' | 'canceled';
 
 export interface CollectionRun {
@@ -79,8 +72,7 @@ export interface CollectionRun {
   duration_seconds: number | null;
 }
 
-// ?? Resources ?????????????????????????????????????????????????????????????
-
+// ── Resources ─────────────────────────────────────────────────────────────────
 export interface Resource {
   id: string;
   resource_type: string;
@@ -147,8 +139,7 @@ export interface ResourceSighting {
   metrics: Record<string, unknown>;
 }
 
-
-// -- Drift ---------------------------------------------------------------
+// ── Drift ─────────────────────────────────────────────────────────────────────
 export type DriftType = 'modified' | 'deleted' | 'restored';
 
 export interface DriftChange {
@@ -171,32 +162,7 @@ export interface ResourceDrift {
   changes: Record<string, DriftChange>;
 }
 
-// ?? Taxonomy ??????????????????????????????????????????????????????????????
-
-
-// -- Drift ------------------------------------------------------------------
-export type DriftType = 'modified' | 'deleted' | 'restored';
-
-export interface DriftChange {
-  from: unknown;
-  to: unknown;
-}
-
-export interface ResourceDrift {
-  id: string;
-  resource: string;
-  resource_name: string;
-  resource_type_slug: string;
-  provider_name: string;
-  collection_run: string;
-  collection_run_started_at: string;
-  previous_collection_run: string | null;
-  previous_collection_run_started_at: string | null;
-  drift_type: DriftType;
-  detected_at: string;
-  changes: Record<string, DriftChange>;
-}
-
+// ── Taxonomy ──────────────────────────────────────────────────────────────────
 export interface ResourceCategory {
   id: string;
   slug: string;
@@ -244,8 +210,7 @@ export interface PropertyDefinition {
   vendor_scope: string;
 }
 
-// ?? Provider Plugins ??????????????????????????????????????????????????????
-
+// ── Provider Plugins ──────────────────────────────────────────────────────────
 export interface ProviderPlugin {
   key: string;
   vendor: string;
@@ -264,13 +229,24 @@ export interface PluginTestResult {
   message: string;
 }
 
-// ?? API client ????????????????????????????????????????????????????????????
+// ── Collection Schedules ──────────────────────────────────────────────────────
+export interface CollectionSchedule {
+  id: string;
+  provider: string;
+  name: string;
+  cron_expression: string;
+  enabled: boolean;
+  last_run_at: string | null;
+  next_run_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
 
+// ── API client ────────────────────────────────────────────────────────────────
 export const api = {
-
-  // Providers � full CRUD + collect
-  listProviders: () =>
-    request<PaginatedResponse<Provider>>('/providers/'),
+  // Providers – full CRUD + collect
+  listProviders: (params?: string) =>
+    request<PaginatedResponse<Provider>>('/providers/' + (params ? '?' + params : '')),
   getProvider: (id: string) =>
     request<Provider>('/providers/' + id + '/'),
   createProvider: (data: Partial<Provider>) =>
@@ -294,7 +270,7 @@ export const api = {
       body: JSON.stringify({}),
     }),
 
-  // Collection runs � read-only + cancel
+  // Collection runs – read-only + cancel
   listCollectionRuns: (page = 1) =>
     request<PaginatedResponse<CollectionRun>>('/collection-runs/?page=' + page),
   getCollectionRun: (id: string) =>
@@ -304,7 +280,7 @@ export const api = {
       method: 'POST',
     }),
 
-  // Resources � read-only + sightings + history
+  // Resources – read-only + sightings + history
   listResources: (params?: string) =>
     request<PaginatedResponse<Resource>>('/resources/' + (params ? '?' + params : '')),
   getResource: (id: string) =>
@@ -314,34 +290,31 @@ export const api = {
   getResourceHistory: (id: string) =>
     request<PaginatedResponse<ResourceSighting>>('/resources/' + id + '/history/'),
 
-  // Resource relationships � read-only
+  // Resource relationships – read-only
   listResourceRelationships: (params?: string) =>
     request<PaginatedResponse<ResourceRelationship>>('/resource-relationships/' + (params ? '?' + params : '')),
   getResourceRelationship: (id: string) =>
     request<ResourceRelationship>('/resource-relationships/' + id + '/'),
 
-  // Taxonomy � read-only
+  // Taxonomy – read-only
   listResourceCategories: () =>
     request<PaginatedResponse<ResourceCategory>>('/resource-categories/'),
   getResourceCategory: (id: string) =>
     request<ResourceCategory>('/resource-categories/' + id + '/'),
-
   listResourceTypes: (params?: string) =>
     request<PaginatedResponse<ResourceType>>('/resource-types/' + (params ? '?' + params : '')),
   getResourceType: (id: string) =>
     request<ResourceType>('/resource-types/' + id + '/'),
-
   listVendorTypeMappings: (params?: string) =>
     request<PaginatedResponse<VendorTypeMapping>>('/vendor-type-mappings/' + (params ? '?' + params : '')),
   getVendorTypeMapping: (id: string) =>
     request<VendorTypeMapping>('/vendor-type-mappings/' + id + '/'),
-
   listPropertyDefinitions: (params?: string) =>
     request<PaginatedResponse<PropertyDefinition>>('/property-definitions/' + (params ? '?' + params : '')),
   getPropertyDefinition: (id: string) =>
     request<PropertyDefinition>('/property-definitions/' + id + '/'),
 
-  // Provider plugins � list, retrieve, upload, uninstall, test, refresh
+  // Provider plugins – list, retrieve, upload, uninstall, test, refresh
   listPlugins: () =>
     request<ProviderPlugin[]>('/provider-plugins/'),
   getPlugin: (key: string) =>
@@ -359,13 +332,33 @@ export const api = {
       method: 'POST',
     }),
 
-  // Drift -- read-only
+  // Drift – read-only
   getResourceDrift: (resourceId: string, params?: string) =>
     request<PaginatedResponse<ResourceDrift>>(
       '/resources/' + resourceId + '/drift/' + (params ? '?' + params : '')
     ),
   listResourceDrift: (params?: string) =>
     request<PaginatedResponse<ResourceDrift>>('/resource-drift/' + (params ? '?' + params : '')),
+
+  // Schedules – full CRUD nested under a provider
+  listSchedules: (providerId: string) =>
+    request<PaginatedResponse<CollectionSchedule>>('/providers/' + providerId + '/schedules/'),
+  getSchedule: (providerId: string, scheduleId: string) =>
+    request<CollectionSchedule>('/providers/' + providerId + '/schedules/' + scheduleId + '/'),
+  createSchedule: (providerId: string, data: Partial<CollectionSchedule>) =>
+    request<CollectionSchedule>('/providers/' + providerId + '/schedules/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }),
+  updateSchedule: (providerId: string, scheduleId: string, data: Partial<CollectionSchedule>) =>
+    request<CollectionSchedule>('/providers/' + providerId + '/schedules/' + scheduleId + '/', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }),
+  deleteSchedule: (providerId: string, scheduleId: string) =>
+    request<void>('/providers/' + providerId + '/schedules/' + scheduleId + '/', { method: 'DELETE' }),
 
   uploadPlugin: (file: File, force = false): Promise<{ detail: string; plugin: ProviderPlugin }> => {
     const creds = localStorage.getItem('inventory_creds');

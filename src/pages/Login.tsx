@@ -6,7 +6,6 @@ import {
   CardTitle,
   Form,
   FormGroup,
-  LoginPage as PFLoginPage,
   TextInput,
 } from '@patternfly/react-core';
 
