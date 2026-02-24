@@ -113,6 +113,7 @@ export interface Resource {
   deleted_at: string | null;
   is_deleted: boolean;
   organization: number;
+  tags: Tag[];
 }
 
 export interface ResourceRelationship {
@@ -359,6 +360,30 @@ export const api = {
     }),
   deleteSchedule: (providerId: string, scheduleId: string) =>
     request<void>('/providers/' + providerId + '/schedules/' + scheduleId + '/', { method: 'DELETE' }),
+
+  // Tags – list + resource assignment
+  listTags: (params?: string) =>
+    request<PaginatedResponse<Tag>>('/tags/' + (params ? '?' + params : '')),
+  getResourceTags: (resourceId: string) =>
+    request<Tag[]>('/resources/' + resourceId + '/tags/'),
+  setResourceTags: (resourceId: string, tags: Partial<Tag>[]) =>
+    request<Tag[]>('/resources/' + resourceId + '/tags/set/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(tags),
+    }),
+  addResourceTags: (resourceId: string, tags: Partial<Tag>[]) =>
+    request<Tag[]>('/resources/' + resourceId + '/tags/add/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(tags),
+    }),
+  removeResourceTags: (resourceId: string, tagIds: string[]) =>
+    request<Tag[]>('/resources/' + resourceId + '/tags/remove/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(tagIds),
+    }),
 
   uploadPlugin: (file: File, force = false): Promise<{ detail: string; plugin: ProviderPlugin }> => {
     const creds = localStorage.getItem('inventory_creds');

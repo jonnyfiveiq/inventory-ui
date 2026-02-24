@@ -16,6 +16,7 @@ import { api } from '../api/client';
 import type { Provider, Resource, ProviderPlugin, PaginatedResponse } from '../api/client';
 import { SchedulesModal } from '../components/SchedulesModal';
 import { ProviderGraphModal } from '../components/ProviderGraphModal';
+import { ResourceTagEditor } from '../components/ResourceTagEditor';
 import { usePolling } from '../hooks/usePolling';
 
 import { vendorDisplayName, vendorAliases, normalizeVendor } from '../utils/vendors';
@@ -217,6 +218,19 @@ export default function VendorPage() {
   const ResourcesTable = (
     <>
       <Toolbar><ToolbarContent>
+        {drillProvider && (
+          <ToolbarItem>
+            <Button
+              variant="primary"
+              icon={<SyncAltIcon />}
+              isLoading={collecting.has(drillProvider.id)}
+              isDisabled={!drillProvider.enabled || collecting.has(drillProvider.id)}
+              onClick={() => handleCollect(drillProvider)}
+            >
+              {collecting.has(drillProvider.id) ? 'Collecting...' : 'Collect Now'}
+            </Button>
+          </ToolbarItem>
+        )}
         <ToolbarItem><Button variant="plain" aria-label="Refresh" onClick={() => loadResources(drillProvider?.id)}><SyncAltIcon /></Button></ToolbarItem>
         <ToolbarItem align={{ default: 'alignRight' }}><span style={{ color: 'var(--pf-v5-global--Color--200)', fontSize: '0.875rem' }}>{resources.length} resource{resources.length !== 1 ? 's' : ''}{drillProvider && <> on <strong>{drillProvider.name}</strong></>}</span></ToolbarItem>
       </ToolbarContent></Toolbar>
@@ -225,17 +239,25 @@ export default function VendorPage() {
         : resources.length === 0 ? <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--pf-v5-global--Color--200)' }}>No resources found. Run a collection first.</div>
         : (
           <Table aria-label="Resources" variant="compact">
-            <Thead><Tr><Th>Name</Th><Th>Type</Th><Th>Provider</Th><Th>State</Th><Th>Power</Th><Th>Region</Th><Th screenReaderText="Graph" /></Tr></Thead>
+            <Thead><Tr><Th>Name</Th><Th>Tags</Th><Th>Provider</Th><Th>State</Th><Th>Power</Th><Th>Region</Th><Th screenReaderText="Graph" /></Tr></Thead>
             <Tbody>
               {resources.map((r) => (
                 <Tr key={r.id}>
                   <Td dataLabel="Name"><strong>{r.name}</strong></Td>
-                  <Td dataLabel="Type"><Label isCompact color="grey">{r.resource_type_name || r.resource_type_slug}</Label></Td>
+                  <Td dataLabel="Tags" onClick={(e) => e.stopPropagation()}>
+                    <ResourceTagEditor
+                      resourceId={r.id}
+                      initialTags={r.tags ?? []}
+                      onChange={(tags) => {
+                        setResources((prev) => prev.map((x) => x.id === r.id ? { ...x, tags } : x));
+                      }}
+                    />
+                  </Td>
                   <Td dataLabel="Provider" style={{ fontSize: '0.8rem', color: 'var(--pf-v5-global--Color--200)' }}>{r.provider_name}</Td>
                   <Td dataLabel="State">{r.state || '\u2014'}</Td>
                   <Td dataLabel="Power">{r.power_state ? <Label isCompact color={r.power_state === 'on' ? 'green' : 'grey'}>{r.power_state}</Label> : '\u2014'}</Td>
                   <Td dataLabel="Region" style={{ fontSize: '0.8rem' }}>{r.region || '\u2014'}</Td>
-                  <Td isActionCell><ProviderGraphModal providerId={r.provider} providerName={r.provider_name} /></Td>
+                  <Td isActionCell><ProviderGraphModal providerId={r.provider} providerName={r.provider_name} resourceId={r.id} resourceName={r.name} /></Td>
                 </Tr>
               ))}
             </Tbody>

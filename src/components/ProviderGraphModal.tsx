@@ -143,10 +143,12 @@ function Legend() {
 interface ProviderGraphModalProps {
   providerId: string;
   providerName: string;
+  resourceId?: string;
+  resourceName?: string;
   autoOpen?: boolean;
 }
 
-export function ProviderGraphModal({ providerId, providerName, autoOpen }: ProviderGraphModalProps) {
+export function ProviderGraphModal({ providerId, providerName, resourceId, resourceName, autoOpen }: ProviderGraphModalProps) {
   const [open, setOpen] = useState(autoOpen ?? false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -170,6 +172,24 @@ export function ProviderGraphModal({ providerId, providerName, autoOpen }: Provi
           api.listResourceRelationships(params) as Promise<{ count: number; results: ResourceRelationship[]; next: string | null }>
         );
         relationships = allRels.filter(r => resourceSet.has(r.source) && resourceSet.has(r.target));
+      }
+
+      // If a specific resource is requested, filter to that resource and its direct neighbors only
+      if (resourceId) {
+        const directRels = relationships.filter(r => r.source === resourceId || r.target === resourceId);
+        const neighborIds = new Set([resourceId]);
+        directRels.forEach(r => { neighborIds.add(r.source as string); neighborIds.add(r.target as string); });
+        const filteredResources = resources.filter(r => neighborIds.has(r.id));
+        const simNodes: SimNode[] = filteredResources.map(r => ({
+          id: r.id, name: r.name, resource_type_slug: r.resource_type_slug,
+          power_state: r.power_state || 'unknown', state: r.state || 'unknown',
+        }));
+        const simLinks: SimLink[] = directRels.map(rel => ({
+          id: rel.id, source: rel.source, target: rel.target, relationship_type: rel.relationship_type,
+        }));
+        setNodes(simNodes);
+        setLinks(simLinks);
+        return;
       }
 
       const simNodes: SimNode[] = resources.map(r => ({
@@ -371,7 +391,7 @@ export function ProviderGraphModal({ providerId, providerName, autoOpen }: Provi
         isOpen={open}
         onClose={() => setOpen(false)}
         variant={ModalVariant.large}
-        title={`Topology — ${providerName}`}
+        title={resourceId ? `Topology — ${resourceName || 'Resource'}` : `Topology — ${providerName}`}
         aria-label="Provider topology graph"
         actions={[
           <Button key="refresh" variant="secondary" onClick={loadGraph} isDisabled={loading}>

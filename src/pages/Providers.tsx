@@ -45,6 +45,7 @@ interface AddState {
   enabled: boolean;
   username: string;
   password: string;
+  validate_certs: boolean;
   saving: boolean;
   saveError: string;
 }
@@ -61,6 +62,7 @@ const defaultAddState = (): AddState => ({
   enabled: true,
   username: '',
   password: '',
+  validate_certs: true,
   saving: false,
   saveError: '',
 });
@@ -178,8 +180,8 @@ export default function ProvidersPage() {
         enabled: addState.enabled,
         organization: 1,
         connection_config: addState.username
-          ? { username: addState.username, password: addState.password }
-          : {},
+          ? { username: addState.username, password: addState.password, validate_certs: addState.validate_certs }
+          : { validate_certs: addState.validate_certs },
       });
       setShowAdd(false);
       setAddState(defaultAddState());
@@ -437,6 +439,14 @@ export default function ProvidersPage() {
               type="password"
               value={addState.password}
               onChange={(_e, v) => setAddState((s) => ({ ...s, password: v }))}
+            />
+          </FormGroup>
+          <FormGroup fieldId="add-validate-certs">
+            <Checkbox
+              id="add-validate-certs"
+              label="Verify SSL certificate (validate_certs)"
+              isChecked={addState.validate_certs}
+              onChange={(_e, checked) => setAddState((s) => ({ ...s, validate_certs: checked }))}
             />
           </FormGroup>
           <FormGroup fieldId="add-enabled">

@@ -14,7 +14,6 @@ import {
   ToolbarContent,
   ToolbarItem,
   Spinner,
-  Tooltip,
 } from '@patternfly/react-core';
 import { SyncAltIcon } from '@patternfly/react-icons';
 import {
@@ -24,6 +23,8 @@ import {
   Th,
   Tbody,
   Td,
+  ActionsColumn,
+  type IAction,
 } from '@patternfly/react-table';
 import { api } from '../api/client';
 import type { CollectionRun, PaginatedResponse } from '../api/client';
@@ -59,6 +60,14 @@ export default function CollectionRunsPage() {
       });
     }
   };
+
+  const getRowActions = (run: CollectionRun): IAction[] => [
+    {
+      title: cancelling.has(run.id) ? 'Cancelling…' : 'Cancel',
+      isDisabled: run.status !== 'pending' || cancelling.has(run.id),
+      onClick: () => handleCancel(run.id),
+    },
+  ];
 
   return (
     <>
@@ -107,7 +116,7 @@ export default function CollectionRunsPage() {
                 <Th width={10}>Duration</Th>
                 <Th width={30}>Resources</Th>
                 <Th width={15}>Version</Th>
-                <Th width={15}>Actions</Th>
+                <Th isActionCell />
               </Tr>
             </Thead>
             <Tbody>
@@ -123,12 +132,8 @@ export default function CollectionRunsPage() {
                   <Td dataLabel="Duration">{formatDuration(run.duration_seconds)}</Td>
                   <Td dataLabel="Resources"><ResourceStats run={run} compact /></Td>
                   <Td dataLabel="Version">{run.collector_version || '-'}</Td>
-                  <Td dataLabel="Actions" onClick={(e) => e.stopPropagation()}>
-                    {(run.status === 'pending' || run.status === 'running') && (
-                      <Tooltip content="Cancel this collection run">
-                        <Button variant="link" isDanger isLoading={cancelling.has(run.id)} onClick={() => handleCancel(run.id)}>Cancel</Button>
-                      </Tooltip>
-                    )}
+                  <Td isActionCell onClick={(e) => e.stopPropagation()}>
+                    <ActionsColumn items={getRowActions(run)} />
                   </Td>
                 </Tr>
               ))}

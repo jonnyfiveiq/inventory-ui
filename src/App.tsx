@@ -34,9 +34,8 @@ function VendorNav() {
   return (
     <NavExpandable
       title="Providers"
-      isExpanded={isActive}
+      isExpanded={true}
       isActive={isActive}
-      onExpand={() => navigate('/inventory/providers')}
     >
       <NavItem isActive={location.pathname === '/inventory/providers'}>
         <NavLink to="/inventory/providers">All Providers</NavLink>
@@ -59,6 +58,9 @@ function VendorNav() {
 
 function AppLayout() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const isTaskMgmtActive = location.pathname.startsWith('/collection-runs');
+
   return (
     <Page
       header={
@@ -78,11 +80,18 @@ function AppLayout() {
                 <NavItem>
                   <NavLink to="/inventory/dashboard" className={({ isActive }) => isActive ? 'pf-m-current' : ''}>Dashboard</NavLink>
                 </NavItem>
-                <NavItem>
-                  <NavLink to="/collection-runs" className={({ isActive }) => isActive ? 'pf-m-current' : ''}>Collection Runs</NavLink>
-                </NavItem>
                 <NavItem style={{ pointerEvents: 'none', opacity: 0.45, fontSize: '0.68rem', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '1rem 1rem 0.25rem' }}>Inventory</NavItem>
                 <Routes><Route path="*" element={<VendorNav />} /></Routes>
+                <NavExpandable
+                  title="Task Management"
+                  groupId="task-management"
+                  isActive={isTaskMgmtActive}
+                  isExpanded={isTaskMgmtActive}
+                >
+                  <NavItem isActive={location.pathname.startsWith('/collection-runs')}>
+                    <NavLink to="/collection-runs" className={({ isActive }) => isActive ? 'pf-m-current' : ''}>Collection Runs</NavLink>
+                  </NavItem>
+                </NavExpandable>
               </NavList>
             </Nav>
           </PageSidebarBody>
@@ -93,7 +102,7 @@ function AppLayout() {
         <Route path="/collection-runs" element={<CollectionRunsPage />} />
         <Route path="/collection-runs/:id" element={<CollectionRunDetailPage />} />
         <Route path="/inventory/dashboard" element={<Dashboard />} />
-              <Route path="/inventory/providers" element={<ProvidersOverview />} />
+        <Route path="/inventory/providers" element={<ProvidersOverview />} />
         <Route path="/inventory/vendors/:vendor" element={<VendorPage />} />
         <Route path="*" element={<Navigate to="/inventory/dashboard" replace />} />
       </Routes>
