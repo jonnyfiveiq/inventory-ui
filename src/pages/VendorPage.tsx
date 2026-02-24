@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import {
   Alert, Badge, Breadcrumb, BreadcrumbItem,
   Bullseye, Button, Checkbox, Form, FormGroup,
-  Label, Modal, ModalVariant, PageSection,
+  Label, LabelGroup, Modal, ModalVariant, PageSection,
   Spinner, TextInput, Title,
   Toolbar, ToolbarContent, ToolbarItem,
   ToggleGroup, ToggleGroupItem,
