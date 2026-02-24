@@ -49,6 +49,7 @@ export default function VendorPage() {
 
   const [view, setView]               = useState<ViewMode>('providers');
   const [drillProvider, setDrillProvider] = useState<Provider | null>(null);
+  const [tagEditorResource, setTagEditorResource] = useState<Resource | null>(null);
   const [schedulesFor, setSchedulesFor] = useState<Provider | null>(null);
 
   useEffect(() => { setView('providers'); setDrillProvider(null); }, [vendor]);
@@ -239,25 +240,37 @@ export default function VendorPage() {
         : resources.length === 0 ? <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--pf-v5-global--Color--200)' }}>No resources found. Run a collection first.</div>
         : (
           <Table aria-label="Resources" variant="compact">
-            <Thead><Tr><Th>Name</Th><Th>Tags</Th><Th>Provider</Th><Th>State</Th><Th>Power</Th><Th>Region</Th><Th screenReaderText="Graph" /></Tr></Thead>
+            <Thead><Tr><Th>Name</Th><Th>Tags</Th><Th>Provider</Th><Th>State</Th><Th>Power</Th><Th>Region</Th><Th screenReaderText="Actions" /></Tr></Thead>
             <Tbody>
               {resources.map((r) => (
                 <Tr key={r.id}>
                   <Td dataLabel="Name"><strong>{r.name}</strong></Td>
-                  <Td dataLabel="Tags" onClick={(e) => e.stopPropagation()}>
-                    <ResourceTagEditor
-                      resourceId={r.id}
-                      initialTags={r.tags ?? []}
-                      onChange={(tags) => {
-                        setResources((prev) => prev.map((x) => x.id === r.id ? { ...x, tags } : x));
-                      }}
-                    />
+                  <Td dataLabel="Tags">
+                    {(r.tags ?? []).length === 0
+                      ? <span style={{ fontSize: '0.8rem', color: 'var(--pf-v5-global--Color--200)' }}>&#x2014;</span>
+                      : <LabelGroup numLabels={5} isCompact>
+                          {(r.tags ?? []).map(t => (
+                            <Label key={t.id} isCompact
+                              color={
+                                t.namespace === 'type' && t.key === 'category' ? 'blue' :
+                                t.namespace === 'type' && t.key === 'resource_type' ? 'cyan' :
+                                t.namespace === 'type' && t.key === 'infrastructure' ? 'purple' : 'grey'
+                              }>
+                              {t.value ? t.key + '=' + t.value : t.key}
+                            </Label>
+                          ))}
+                        </LabelGroup>}
                   </Td>
                   <Td dataLabel="Provider" style={{ fontSize: '0.8rem', color: 'var(--pf-v5-global--Color--200)' }}>{r.provider_name}</Td>
                   <Td dataLabel="State">{r.state || '\u2014'}</Td>
                   <Td dataLabel="Power">{r.power_state ? <Label isCompact color={r.power_state === 'on' ? 'green' : 'grey'}>{r.power_state}</Label> : '\u2014'}</Td>
                   <Td dataLabel="Region" style={{ fontSize: '0.8rem' }}>{r.region || '\u2014'}</Td>
-                  <Td isActionCell><ProviderGraphModal providerId={r.provider} providerName={r.provider_name} resourceId={r.id} resourceName={r.name} /></Td>
+                  <Td isActionCell>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                      <ProviderGraphModal providerId={r.provider} providerName={r.provider_name} resourceId={r.id} resourceName={r.name} />
+                      <ActionsColumn items={[{ title: 'Manage Tags', onClick: () => setTagEditorResource(r) }]} />
+                    </div>
+                  </Td>
                 </Tr>
               ))}
             </Tbody>
@@ -265,6 +278,19 @@ export default function VendorPage() {
         )}
     </>
   );
+
+  const TagEditorModal = tagEditorResource ? (
+    <ResourceTagEditor
+      resourceId={tagEditorResource.id}
+      resourceName={tagEditorResource.name}
+      initialTags={tagEditorResource.tags ?? []}
+      isOpen={true}
+      onClose={() => setTagEditorResource(null)}
+      onChange={(tags) => {
+        setResources((prev) => prev.map((x) => x.id === tagEditorResource.id ? { ...x, tags } : x));
+      }}
+    />
+  ) : null;
 
   const title = drillProvider ? drillProvider.name : vendorName;
   const subtitle = drillProvider ? vendorName + ' \u00b7 Resources'
@@ -344,6 +370,7 @@ export default function VendorPage() {
           </Form>
         )}
       </Modal>
+      {TagEditorModal}
     </>
   );
 }
