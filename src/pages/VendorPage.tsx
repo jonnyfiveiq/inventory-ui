@@ -38,7 +38,7 @@ interface AddState {
 const blankAdd = (): AddState => ({
   step: 1, file: null, uploading: false, uploadError: '', uploadedPlugin: null,
   name: '', endpoint: '', infrastructure: 'private_cloud', enabled: true,
-  username: '', password: '', saving: false, saveError: '',
+  username: '', password: '', validateCerts: true, saving: false, saveError: '',
 });
 
 type ViewMode = 'providers' | 'resources';

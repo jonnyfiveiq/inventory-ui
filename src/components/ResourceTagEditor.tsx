@@ -9,7 +9,6 @@ import {
   ActionList,
   ActionListItem,
   Spinner,
-  Divider,
 } from '@patternfly/react-core';
 import { PlusIcon } from '@patternfly/react-icons';
 import { api } from '../api/client';
@@ -111,7 +110,7 @@ export function ResourceTagEditor({ resourceId, resourceName, initialTags, isOpe
           ))}
         </LabelGroup>
       </div>
-      <Divider style={{ marginBottom: '1rem' }} />
+      <hr style={{ margin: '0 0 1rem 0', border: 'none', borderTop: '1px solid var(--pf-v5-global--BorderColor--100)' }} />
       <div>
         <p style={{ fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.5rem' }}>Add tag</p>
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
