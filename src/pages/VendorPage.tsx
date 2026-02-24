@@ -150,7 +150,7 @@ export default function VendorPage() {
         provider_type: addState.uploadedPlugin.provider_type,
         infrastructure: addState.infrastructure, endpoint: addState.endpoint,
         enabled: addState.enabled, organization: 1,
-        connection_config: addState.username ? { username: addState.username, password: addState.password } : {},
+        connection_config: addState.username ? { username: addState.username, password: addState.password, validate_certs: addState.validateCerts } : { validate_certs: addState.validateCerts },
       });
       setShowAdd(false); setAddState(blankAdd()); refreshProv();
     } catch (err: unknown) {
@@ -316,6 +316,7 @@ export default function VendorPage() {
             <FormGroup label="Infrastructure" isRequired fieldId="ai"><select id="ai" value={addState.infrastructure} style={selStyle} onChange={(e) => setAddState((s) => ({ ...s, infrastructure: e.target.value }))}><option value="private_cloud">Private Cloud</option><option value="public_cloud">Public Cloud</option><option value="on_premise">On Premise</option><option value="networking">Networking</option><option value="storage">Storage</option></select></FormGroup>
             <FormGroup label="Username" fieldId="au"><TextInput id="au" value={addState.username} placeholder="admin" onChange={(_e, v) => setAddState((s) => ({ ...s, username: v }))} /></FormGroup>
             <FormGroup label="Password" fieldId="ap"><TextInput id="ap" type="password" value={addState.password} onChange={(_e, v) => setAddState((s) => ({ ...s, password: v }))} /></FormGroup>
+            <FormGroup fieldId="ap-verify-ssl"><Checkbox id="ap-verify-ssl" label="Verify SSL certificate" isChecked={addState.validateCerts} onChange={(_e, checked) => setAddState((s) => ({ ...s, validateCerts: checked }))} description="Disable for self-signed certificates" /></FormGroup>
             <FormGroup fieldId="aen"><Checkbox id="aen" label="Enable this provider" isChecked={addState.enabled} onChange={(_e, v) => setAddState((s) => ({ ...s, enabled: v }))} /></FormGroup>
             {addState.saveError && <Alert variant="danger" isInline title={addState.saveError} />}
           </Form>

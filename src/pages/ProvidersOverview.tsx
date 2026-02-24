@@ -46,6 +46,7 @@ interface AddState {
   enabled: boolean;
   username: string;
   password: string;
+  validateCerts: boolean;
   saving: boolean;
   saveError: string;
 }
@@ -62,6 +63,7 @@ const defaultAddState = (): AddState => ({
   enabled: true,
   username: '',
   password: '',
+  validateCerts: true,
   saving: false,
   saveError: '',
 });
@@ -152,7 +154,7 @@ export default function ProvidersOverview() {
         enabled: addState.enabled,
         organization: 1,
         connection_config: addState.username
-          ? { username: addState.username, password: addState.password }
+          ? { username: addState.username, password: addState.password, validate_certs: addState.validateCerts }
           : {},
       });
       setShowAdd(false);
@@ -393,6 +395,12 @@ export default function ProvidersOverview() {
             <Checkbox id="add-enabled" label="Enable this provider"
               isChecked={addState.enabled}
               onChange={(_e, checked) => setAddState((s) => ({ ...s, enabled: checked }))} />
+          </FormGroup>
+          <FormGroup fieldId="add-verify-ssl">
+            <Checkbox id="add-verify-ssl" label="Verify SSL certificate"
+              isChecked={addState.validateCerts}
+              onChange={(_e, checked) => setAddState((s) => ({ ...s, validateCerts: checked }))}
+              description="Disable for self-signed certificates" />
           </FormGroup>
           {addState.saveError && <Alert variant="danger" isInline title={addState.saveError} />}
         </Form>
