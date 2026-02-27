@@ -12,6 +12,7 @@ import {
   ModalVariant,
   PageSection,
   Spinner,
+  SearchInput,
   TextInput,
   Title,
   Toolbar,
@@ -79,6 +80,8 @@ export default function ProvidersPage() {
   const [saving, setSaving] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [addState, setAddState] = useState<AddState>(defaultAddState());
+
+  const [provSearch, setProvSearch] = useState('');
 
   const fetchProviders = useCallback(() => api.listProviders(), []);
   const { data, loading, refresh } = usePolling<PaginatedResponse<Provider>>(fetchProviders, 10000);
@@ -242,8 +245,18 @@ export default function ProvidersPage() {
                 <SyncAltIcon /> Refresh
               </Button>
             </ToolbarItem>
+            <ToolbarItem style={{ flex: 1 }}>
+              <SearchInput
+                placeholder="Filter providers… (name, vendor, endpoint, status)"
+                value={provSearch}
+                onChange={(_e, v) => setProvSearch(v)}
+                onClear={() => setProvSearch('')}
+                aria-label="Filter providers"
+                style={{ maxWidth: '500px' }}
+              />
+            </ToolbarItem>
             <ToolbarItem align={{ default: 'alignRight' }}>
-              <span style={{ color: 'var(--pf-v5-global--Color--200)' }}>{data?.count ?? 0} providers</span>
+              <span style={{ color: 'var(--pf-v5-global--Color--200)' }}>{provSearch ? `${filtered.length} of ${providers.length}` : `${providers.length}`} provider{filtered.length !== 1 ? 's' : ''}</span>
             </ToolbarItem>
           </ToolbarContent>
         </Toolbar>
@@ -264,7 +277,7 @@ export default function ProvidersPage() {
               </Tr>
             </Thead>
             <Tbody>
-              {providers.map((p) => (
+              {filtered.map((p) => (
                 <Tr key={p.id}>
                   <Td dataLabel="Name"><strong>{p.name}</strong></Td>
                   <Td dataLabel="Vendor">{p.vendor}</Td>

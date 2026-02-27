@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Alert, Badge, Bullseye, Button, Checkbox, Form, FormGroup,
   Label, Modal, ModalVariant, PageSection,
-  Spinner, TextInput, Title,
+  SearchInput, Spinner, TextInput, Title,
   Toolbar, ToolbarContent, ToolbarItem,
 } from '@patternfly/react-core';
 import {
@@ -85,6 +85,7 @@ export default function ProvidersOverview() {
   const [showAdd, setShowAdd] = useState(false);
   const [addState, setAddState] = useState<AddState>(defaultAddState());
 
+  const [provSearch, setProvSearch] = useState('');
 
   const handleCollect = async (p: Provider) => {
     setCollecting((s) => new Set(s).add(p.id));
@@ -176,6 +177,13 @@ export default function ProvidersOverview() {
     { title: 'Delete', onClick: () => setConfirmDelete(p) },
   ];
 
+  const filtered = providers.filter((p) => {
+    if (!provSearch.trim()) return true;
+    const q = provSearch.toLowerCase();
+    const searchable = [p.name, p.vendor, p.provider_type, p.endpoint, p.enabled ? 'enabled' : 'disabled', p.last_collection_status, p.infrastructure].filter(Boolean);
+    return searchable.some((s) => s.toLowerCase().includes(q));
+  });
+
   const vendorCounts = providers.reduce<Record<string, number>>((acc, p) => {
     const k = normalizeVendor(p.vendor); acc[k] = (acc[k] || 0) + 1; return acc;
   }, {});
@@ -205,9 +213,19 @@ export default function ProvidersOverview() {
           <ToolbarContent>
             <ToolbarItem><Button variant="primary" icon={<PlusCircleIcon />} onClick={() => setShowAdd(true)}>Add Provider</Button></ToolbarItem>
             <ToolbarItem><Button variant="plain" aria-label="Refresh" onClick={refresh}><SyncAltIcon /></Button></ToolbarItem>
+            <ToolbarItem style={{ flex: 1 }}>
+              <SearchInput
+                placeholder="Filter providers… (name, vendor, endpoint, status)"
+                value={provSearch}
+                onChange={(_e, v) => setProvSearch(v)}
+                onClear={() => setProvSearch('')}
+                aria-label="Filter providers"
+                style={{ maxWidth: '500px' }}
+              />
+            </ToolbarItem>
             <ToolbarItem align={{ default: 'alignRight' }}>
               <span style={{ color: 'var(--pf-v5-global--Color--200)', fontSize: '0.875rem' }}>
-                {providers.length} provider{providers.length !== 1 ? 's' : ''}
+                {provSearch ? `${filtered.length} of ${providers.length}` : `${providers.length}`} provider{filtered.length !== 1 ? 's' : ''}
               </span>
             </ToolbarItem>
           </ToolbarContent>
@@ -215,9 +233,9 @@ export default function ProvidersOverview() {
 
         {loading && !data ? (
           <Bullseye style={{ padding: '3rem' }}><Spinner size="xl" /></Bullseye>
-        ) : providers.length === 0 ? (
+        ) : filtered.length === 0 ? (
           <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--pf-v5-global--Color--200)' }}>
-            No providers configured yet.
+            {provSearch ? 'No providers match that filter.' : 'No providers configured yet.'}
           </div>
         ) : (
           <Table aria-label="All providers" variant="compact">
@@ -225,7 +243,7 @@ export default function ProvidersOverview() {
               <Tr>
                 <Th>Name</Th>
                 <Th>Vendor</Th>
-                <Th>Endpoint</Th>
+                <Th>Resources</Th>
                 <Th>Status</Th>
                 <Th>Last Collection</Th>
                 <Th>Schedules</Th>
@@ -234,14 +252,14 @@ export default function ProvidersOverview() {
               </Tr>
             </Thead>
             <Tbody>
-              {providers.map((p) => (
+              {filtered.map((p) => (
                 <Tr key={p.id} style={{ cursor: 'pointer' }}
                     onRowClick={() => navigate('/inventory/vendors/' + p.vendor.toLowerCase())}>
                   <Td dataLabel="Name"><strong>{p.name}</strong></Td>
                   <Td dataLabel="Vendor">
                     <Label isCompact color={vendorColor(p.vendor)}>{vendorDisplayName(p.vendor)}</Label>
                   </Td>
-                  <Td dataLabel="Endpoint"><code style={{ fontSize: '0.8rem' }}>{p.endpoint}</code></Td>
+                  <Td dataLabel="Resources">{p.resource_count ?? 0}</Td>
                   <Td dataLabel="Status">
                     <Label isCompact color={p.enabled ? 'green' : 'grey'}>{p.enabled ? 'Enabled' : 'Disabled'}</Label>
                   </Td>

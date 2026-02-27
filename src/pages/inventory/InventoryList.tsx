@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams } useNavigate } from 'react-router-dom';
 import {
   Bullseye,
   EmptyState,
@@ -7,9 +7,13 @@ import {
   EmptyStateVariant,
   Label,
   PageSection,
+  SearchInput,
   Spinner,
   Title,
-} from '@patternfly/react-core';
+  Toolbar,
+  ToolbarContent,
+  ToolbarItem,
+} Button, } from '@patternfly/react-core';
 import {
   Table,
   Thead,
@@ -22,6 +26,7 @@ import { api } from '../../api/client';
 import type { Resource, ResourceType, ResourceCategory, ResourceDrift, DriftType } from '../../api/client';
 import { usePolling } from '../../hooks/usePolling';
 import { DriftLabel, DriftModal } from '../../components/DriftModal';
+import { CheckCircleIcon } from '@patternfly/react-icons';
 
 // -- Drift state types -------------------------------------------------------
 
@@ -38,6 +43,7 @@ interface WithDriftProps {
 }
 
 function DriftCell({ resource, driftInfo }: WithDriftProps) {
+  const navigate = useNavigate();
   const [modalOpen, setModalOpen] = useState(false);
 
   if (!driftInfo || driftInfo.types.length === 0) return null;
@@ -59,6 +65,16 @@ function DriftCell({ resource, driftInfo }: WithDriftProps) {
   );
 }
 
+// -- Automated badge --------------------------------------------------------
+function AutomatedCell({ r }: { r: Resource }) {
+  if (!r.is_automated) return <span style={{ color: 'var(--pf-v5-global--Color--200)' }}>—</span>;
+  return (
+    <Label isCompact color="teal" icon={<CheckCircleIcon />}>
+      {r.automation_count ?? 0}
+    </Label>
+  );
+}
+
 // -- Column layouts per category ---------------------------------------------
 
 function ComputeRow({ r, driftInfo }: { r: Resource; driftInfo: DriftInfo | undefined }) {
@@ -72,11 +88,12 @@ function ComputeRow({ r, driftInfo }: { r: Resource; driftInfo: DriftInfo | unde
   return (
     <Tr key={r.id}>
       <Td dataLabel="Name">
-        <strong>{r.name}</strong>
+        <Button variant="link" isInline onClick={() => navigate('/resources/' + r.id)} style={{ fontWeight: 600 }}>{r.name}</Button>
         <DriftCell resource={r} driftInfo={driftInfo} />
       </Td>
       <Td dataLabel="Type">{r.vendor_type || r.resource_type_slug}</Td>
       <Td dataLabel="State">{r.state ? <Label color={stateColor(r.state)}>{r.state}</Label> : '-'}</Td>
+      <Td dataLabel="Automated"><AutomatedCell r={r} /></Td>
       <Td dataLabel="Power">{r.power_state ? <Label color={powerColor(r.power_state)}>{r.power_state}</Label> : '-'}</Td>
       <Td dataLabel="CPUs">{r.cpu_count ?? '-'}</Td>
       <Td dataLabel="Memory">{r.memory_mb ? (r.memory_mb / 1024).toFixed(1) + ' GB' : '-'}</Td>
@@ -94,6 +111,7 @@ function ComputeTable({ resources, driftMap }: { resources: Resource[]; driftMap
         <Th width={20}>Name</Th>
         <Th>Type</Th>
         <Th>State</Th>
+        <Th width={8}>Automated</Th>
         <Th width={10}>Power</Th>
         <Th>CPUs</Th>
         <Th>Memory</Th>
@@ -116,11 +134,12 @@ function StorageRow({ r, driftInfo }: { r: Resource; driftInfo: DriftInfo | unde
   return (
     <Tr key={r.id}>
       <Td dataLabel="Name">
-        <strong>{r.name}</strong>
+        <Button variant="link" isInline onClick={() => navigate('/resources/' + r.id)} style={{ fontWeight: 600 }}>{r.name}</Button>
         <DriftCell resource={r} driftInfo={driftInfo} />
       </Td>
       <Td dataLabel="Type">{r.vendor_type || r.resource_type_slug}</Td>
       <Td dataLabel="State">{r.state ? <Label color={stateColor(r.state)}>{r.state}</Label> : '-'}</Td>
+      <Td dataLabel="Automated"><AutomatedCell r={r} /></Td>
       <Td dataLabel="Capacity">{capacityGb ? capacityGb + ' GB' : '-'}</Td>
       <Td dataLabel="Free Space">{freeGb != null ? freeGb + ' GB' : '-'}</Td>
       <Td dataLabel="Used">{freeGb != null && capacityGb ? (capacityGb - freeGb) + ' GB' : '-'}</Td>
@@ -137,6 +156,7 @@ function StorageTable({ resources, driftMap }: { resources: Resource[]; driftMap
         <Th width={20}>Name</Th>
         <Th width={15}>Type</Th>
         <Th>State</Th>
+        <Th width={8}>Automated</Th>
         <Th width={10}>Capacity</Th>
         <Th width={10}>Free Space</Th>
         <Th width={10}>Used</Th>
@@ -154,11 +174,12 @@ function NetworkingRow({ r, driftInfo }: { r: Resource; driftInfo: DriftInfo | u
   return (
     <Tr key={r.id}>
       <Td dataLabel="Name">
-        <strong>{r.name}</strong>
+        <Button variant="link" isInline onClick={() => navigate('/resources/' + r.id)} style={{ fontWeight: 600 }}>{r.name}</Button>
         <DriftCell resource={r} driftInfo={driftInfo} />
       </Td>
       <Td dataLabel="Type">{r.vendor_type || r.resource_type_slug}</Td>
       <Td dataLabel="State">{r.state ? <Label color={stateColor(r.state)}>{r.state}</Label> : '-'}</Td>
+      <Td dataLabel="Automated"><AutomatedCell r={r} /></Td>
       <Td dataLabel="Region">{r.region || '-'}</Td>
       <Td dataLabel="Zone">{r.availability_zone || '-'}</Td>
       <Td dataLabel="Tenant">{r.cloud_tenant || '-'}</Td>
@@ -173,6 +194,7 @@ function NetworkingTable({ resources, driftMap }: { resources: Resource[]; drift
         <Th width={25}>Name</Th>
         <Th width={20}>Type</Th>
         <Th width={10}>State</Th>
+        <Th width={8}>Automated</Th>
         <Th width={15}>Region</Th>
         <Th width={15}>Zone</Th>
         <Th width={15}>Tenant</Th>
@@ -189,11 +211,12 @@ function GenericRow({ r, driftInfo }: { r: Resource; driftInfo: DriftInfo | unde
   return (
     <Tr key={r.id}>
       <Td dataLabel="Name">
-        <strong>{r.name}</strong>
+        <Button variant="link" isInline onClick={() => navigate('/resources/' + r.id)} style={{ fontWeight: 600 }}>{r.name}</Button>
         <DriftCell resource={r} driftInfo={driftInfo} />
       </Td>
       <Td dataLabel="Type">{r.vendor_type || r.resource_type_slug}</Td>
       <Td dataLabel="State">{r.state ? <Label color={stateColor(r.state)}>{r.state}</Label> : '-'}</Td>
+      <Td dataLabel="Automated"><AutomatedCell r={r} /></Td>
       <Td dataLabel="Region">{r.region || '-'}</Td>
       <Td dataLabel="First Discovered">{r.first_discovered_at ? new Date(r.first_discovered_at).toLocaleDateString() : '-'}</Td>
       <Td dataLabel="Last Seen">{r.last_seen_at ? new Date(r.last_seen_at).toLocaleDateString() : '-'}</Td>
@@ -208,6 +231,7 @@ function GenericTable({ resources, label, driftMap }: { resources: Resource[]; l
         <Th width={25}>Name</Th>
         <Th width={20}>Type</Th>
         <Th width={10}>State</Th>
+        <Th width={8}>Automated</Th>
         <Th width={15}>Region</Th>
         <Th width={15}>First Discovered</Th>
         <Th width={15}>Last Seen</Th>
@@ -224,6 +248,9 @@ export default function InventoryList() {
   const [category, setCategory] = useState<ResourceCategory | null>(null);
   const [typeIds, setTypeIds] = useState<Set<string> | null>(null);
   const [driftMap, setDriftMap] = useState<Map<string, DriftInfo>>(new Map());
+
+  // Spotlight search
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     if (!categorySlug) return;
@@ -277,6 +304,23 @@ export default function InventoryList() {
   );
 
   const driftCount = resources.filter((r) => driftMap.has(r.id)).length;
+  const automatedCount = resources.filter((r) => r.is_automated).length;
+
+  // Spotlight filter - matches across all visible fields
+  const filtered = resources.filter((r) => {
+    if (!search.trim()) return true;
+    const q = search.toLowerCase();
+    const searchable = [
+      r.name, r.vendor_type, r.resource_type_slug, r.state, r.power_state,
+      r.region, r.os_name, r.os_type, r.fqdn, r.flavor,
+      r.cloud_tenant, r.availability_zone,
+      ...(r.ip_addresses ?? []),
+      ...(r.tags ?? []).map((t: { key: string; value?: string }) => t.key + '=' + (t.value ?? '')),
+      r.cpu_count?.toString(), r.memory_mb?.toString(), r.disk_gb?.toString(),
+    ].filter(Boolean);
+    return searchable.some((s) => s!.toLowerCase().includes(q));
+  });
+
   const categoryTitle = category?.name ?? categorySlug ?? 'Resources';
 
   if (loading && !data) {
@@ -288,7 +332,17 @@ export default function InventoryList() {
       <PageSection variant="light">
         <Title headingLevel="h1" size="2xl">{categoryTitle}</Title>
         <p style={{ marginTop: '0.5rem', color: 'var(--pf-v5-global--Color--200)' }}>
-          {resources.length} {categoryTitle.toLowerCase()} discovered
+          {search ? `${filtered.length} of ${resources.length}` : `${resources.length}`} {categoryTitle.toLowerCase()} discovered
+          {automatedCount > 0 && (
+            <Label
+              color="teal"
+              isCompact
+              icon={<CheckCircleIcon />}
+              style={{ marginLeft: '0.75rem' }}
+            >
+              {automatedCount} automated
+            </Label>
+          )}
           {driftCount > 0 && (
             <Label
               color="orange"
@@ -302,21 +356,40 @@ export default function InventoryList() {
         </p>
       </PageSection>
       <PageSection>
-        {resources.length === 0 ? (
+        <Toolbar style={{ marginBottom: '1rem' }}>
+          <ToolbarContent>
+            <ToolbarItem style={{ flex: 1 }}>
+              <SearchInput
+                placeholder="Filter resources… (name, type, IP, OS, state, region)"
+                value={search}
+                onChange={(_e, v) => setSearch(v)}
+                onClear={() => setSearch('')}
+                aria-label="Filter resources"
+                style={{ maxWidth: '500px' }}
+              />
+            </ToolbarItem>
+            <ToolbarItem align={{ default: 'alignRight' }}>
+              <span style={{ color: 'var(--pf-v5-global--Color--200)', fontSize: '0.875rem' }}>
+                {search ? `${filtered.length} of ${resources.length}` : `${resources.length}`} resource{filtered.length !== 1 ? 's' : ''}
+              </span>
+            </ToolbarItem>
+          </ToolbarContent>
+        </Toolbar>
+        {filtered.length === 0 ? (
           <EmptyState variant={EmptyStateVariant.lg}>
-            <Title headingLevel="h2" size="lg">No {categoryTitle.toLowerCase()} found</Title>
+            <Title headingLevel="h2" size="lg">{search ? 'No matching resources' : `No ${categoryTitle.toLowerCase()} found`}</Title>
             <EmptyStateBody>
-              Run a collection on this provider to discover resources.
+              {search ? 'No resources match that filter. Try a different search term.' : 'Run a collection on this provider to discover resources.'}
             </EmptyStateBody>
           </EmptyState>
         ) : categorySlug === 'compute' ? (
-          <ComputeTable resources={resources} driftMap={driftMap} />
+          <ComputeTable resources={filtered} driftMap={driftMap} />
         ) : categorySlug === 'storage' ? (
-          <StorageTable resources={resources} driftMap={driftMap} />
+          <StorageTable resources={filtered} driftMap={driftMap} />
         ) : categorySlug === 'networking' ? (
-          <NetworkingTable resources={resources} driftMap={driftMap} />
+          <NetworkingTable resources={filtered} driftMap={driftMap} />
         ) : (
-          <GenericTable resources={resources} label={categoryTitle} driftMap={driftMap} />
+          <GenericTable resources={filtered} label={categoryTitle} driftMap={driftMap} />
         )}
       </PageSection>
     </>

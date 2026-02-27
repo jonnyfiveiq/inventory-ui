@@ -158,7 +158,7 @@ export function DriftModal({ resourceId, resourceName, onClose }: DriftModalProp
   useEffect(() => {
     setLoading(true);
     setError(null);
-    api.getResourceDrift(resourceId, 'page_size=100')
+    api.listResourceDrift('resource=' + resourceId + '&page_size=100')
       .then((r) => setDriftEvents(r.results))
       .catch((e) => setError(String(e)))
       .finally(() => setLoading(false));

@@ -14,6 +14,11 @@ import CollectionRunDetailPage from './pages/CollectionRunDetail';
 import VendorPage from './pages/VendorPage';
 import ProvidersOverview from './pages/ProvidersOverview';
 import Dashboard from './pages/Dashboard';
+import WatchlistList from './pages/WatchlistList';
+import WatchlistDetail from './pages/WatchlistDetail';
+import DriftTimeline from './pages/DriftTimeline';
+import MetricsImport from './pages/MetricsImport';
+import ResourceDetail from './pages/ResourceDetail';
 import { api } from './api/client';
 import { normalizeVendor, vendorDisplayName } from './utils/vendors';
 
@@ -29,7 +34,7 @@ function VendorNav() {
     });
   }, []);
 
-  const isActive = location.pathname.startsWith('/inventory');
+  const isActive = location.pathname.startsWith('/inventory/vendors');
 
   return (
     <NavExpandable
@@ -38,65 +43,64 @@ function VendorNav() {
       isActive={isActive}
     >
       <NavItem isActive={location.pathname === '/inventory/providers'}>
-        <NavLink to="/inventory/providers">All Providers</NavLink>
+        <NavLink to="/inventory/providers">Overview</NavLink>
       </NavItem>
-      {vendors.length === 0 ? (
-        <NavItem style={{ opacity: 0.5, fontSize: '0.82rem', padding: '0.3rem 1rem 0.3rem 2rem', pointerEvents: 'none' }}>
-          No providers yet
+      {vendors.map((v) => (
+        <NavItem key={v} isActive={location.pathname === '/inventory/vendors/' + v}>
+          <NavLink to={'/inventory/vendors/' + v}>{vendorDisplayName(v)}</NavLink>
         </NavItem>
-      ) : vendors.map((v) => {
-        const active = location.pathname === '/inventory/vendors/' + v;
-        return (
-          <NavItem key={v} isActive={active}>
-            <NavLink to={'/inventory/vendors/' + v}>{vendorDisplayName(v)}</NavLink>
-          </NavItem>
-        );
-      })}
+      ))}
     </NavExpandable>
   );
 }
 
 function AppLayout() {
-  const navigate = useNavigate();
   const location = useLocation();
-  const isTaskMgmtActive = location.pathname.startsWith('/collection-runs');
+  const navigate = useNavigate();
+
+  const sidebar = (
+    <PageSidebar>
+      <PageSidebarBody>
+        <Nav>
+          <NavList>
+            <NavItem isActive={location.pathname === '/inventory/dashboard'}>
+              <NavLink to="/inventory/dashboard">Dashboard</NavLink>
+            </NavItem>
+            <VendorNav />
+            <NavItem isActive={location.pathname === '/collection-runs'}>
+              <NavLink to="/collection-runs">Collection Runs</NavLink>
+            </NavItem>
+            <NavItem isActive={location.pathname.startsWith('/watchlists')}>
+              <NavLink to="/watchlists">Watchlists</NavLink>
+            </NavItem>
+            <NavItem isActive={location.pathname.startsWith('/metrics-import')}>
+              <NavLink to="/metrics-import">Metrics Import</NavLink>
+            </NavItem>
+          </NavList>
+        </Nav>
+      </PageSidebarBody>
+    </PageSidebar>
+  );
 
   return (
     <Page
-      header={
+      masthead={
         <Masthead>
-          <MastheadMain><MastheadBrand><strong>Inventory Service</strong></MastheadBrand></MastheadMain>
-          <MastheadContent style={{ marginLeft: 'auto' }}>
-            <Button variant="plain" style={{ color: 'white' }}
-              onClick={() => { localStorage.removeItem('inventory_creds'); navigate('/login'); }}>Log out</Button>
+          <MastheadMain>
+            <MastheadBrand>
+              <span style={{ color: 'white', fontWeight: 700, cursor: 'pointer' }} onClick={() => navigate('/inventory/dashboard')}>
+                AAP Inventory
+              </span>
+            </MastheadBrand>
+          </MastheadMain>
+          <MastheadContent>
+            <Button variant="plain" style={{ color: 'white' }} onClick={() => { localStorage.removeItem('inventory_creds'); window.location.reload(); }}>
+              Logout
+            </Button>
           </MastheadContent>
         </Masthead>
       }
-      sidebar={
-        <PageSidebar>
-          <PageSidebarBody>
-            <Nav aria-label="Main navigation">
-              <NavList>
-                <NavItem>
-                  <NavLink to="/inventory/dashboard" className={({ isActive }) => isActive ? 'pf-m-current' : ''}>Dashboard</NavLink>
-                </NavItem>
-                <NavItem style={{ pointerEvents: 'none', opacity: 0.45, fontSize: '0.68rem', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '1rem 1rem 0.25rem' }}>Inventory</NavItem>
-                <Routes><Route path="*" element={<VendorNav />} /></Routes>
-                <NavExpandable
-                  title="Task Management"
-                  groupId="task-management"
-                  isActive={isTaskMgmtActive}
-                  isExpanded={isTaskMgmtActive}
-                >
-                  <NavItem isActive={location.pathname.startsWith('/collection-runs')}>
-                    <NavLink to="/collection-runs" className={({ isActive }) => isActive ? 'pf-m-current' : ''}>Collection Runs</NavLink>
-                  </NavItem>
-                </NavExpandable>
-              </NavList>
-            </Nav>
-          </PageSidebarBody>
-        </PageSidebar>
-      }
+      sidebar={sidebar}
     >
       <Routes>
         <Route path="/collection-runs" element={<CollectionRunsPage />} />
@@ -104,6 +108,11 @@ function AppLayout() {
         <Route path="/inventory/dashboard" element={<Dashboard />} />
         <Route path="/inventory/providers" element={<ProvidersOverview />} />
         <Route path="/inventory/vendors/:vendor" element={<VendorPage />} />
+        <Route path="/watchlists" element={<WatchlistList />} />
+        <Route path="/watchlists/:id" element={<WatchlistDetail />} />
+        <Route path="/resources/:id" element={<ResourceDetail />} />
+        <Route path="/metrics-import" element={<MetricsImport />} />
+        <Route path="/resources/:id/drift" element={<DriftTimeline />} />
         <Route path="*" element={<Navigate to="/inventory/dashboard" replace />} />
       </Routes>
     </Page>

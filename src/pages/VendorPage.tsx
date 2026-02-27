@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
   Alert, Badge, Breadcrumb, BreadcrumbItem,
   Bullseye, Button, Checkbox, Form, FormGroup,
   Label, LabelGroup, Modal, ModalVariant, PageSection,
   Spinner, TextInput, Title,
-  Toolbar, ToolbarContent, ToolbarItem,
+  SearchInput, Toolbar, ToolbarContent, ToolbarItem,
   ToggleGroup, ToggleGroupItem,
 } from '@patternfly/react-core';
 import {
@@ -17,6 +17,8 @@ import type { Provider, Resource, ProviderPlugin, PaginatedResponse } from '../a
 import { SchedulesModal } from '../components/SchedulesModal';
 import { ProviderGraphModal } from '../components/ProviderGraphModal';
 import { ResourceTagEditor } from '../components/ResourceTagEditor';
+import { AddToWatchlistModal } from '../components/AddToWatchlistModal';
+import { DriftLabel } from '../components/DriftModal';
 import { usePolling } from '../hooks/usePolling';
 
 import { vendorDisplayName, vendorAliases, normalizeVendor } from '../utils/vendors';
@@ -46,13 +48,21 @@ type ViewMode = 'providers' | 'resources';
 export default function VendorPage() {
   const { vendor } = useParams<{ vendor: string }>();
   const vendorName = vendorDisplayName(vendor ?? '');
+  const navigate = useNavigate();
+  const [driftMap, setDriftMap] = useState<Record<string, string[]>>({});
 
   const [view, setView]               = useState<ViewMode>('providers');
   const [drillProvider, setDrillProvider] = useState<Provider | null>(null);
   const [tagEditorResource, setTagEditorResource] = useState<Resource | null>(null);
+  const [showAddToWatchlist, setShowAddToWatchlist] = useState(false);
+  const [watchlistResourceIds, setWatchlistResourceIds] = useState<string[]>([]);
   const [schedulesFor, setSchedulesFor] = useState<Provider | null>(null);
 
-  useEffect(() => { setView('providers'); setDrillProvider(null); }, [vendor]);
+  // Spotlight search
+  const [resSearch, setResSearch] = useState('');
+  const [provSearch, setProvSearch] = useState('');
+
+  useEffect(() => { setView('providers'); setDrillProvider(null); setResSearch(''); setProvSearch(''); }, [vendor]);
 
   const fetchProviders = useCallback(
     () => api.listProviders('page_size=200'),
@@ -88,6 +98,19 @@ export default function VendorPage() {
   useEffect(() => {
     if (view === 'resources') loadResources(drillProvider?.id);
   }, [view, drillProvider, vendor]);
+
+  // Load drift data for visible resources
+  useEffect(() => {
+    if (resources.length === 0) { setDriftMap({}); return; }
+    api.listResourceDrift('page_size=500').then((r) => {
+      const m: Record<string, string[]> = {};
+      for (const d of r.results) {
+        if (!m[d.resource]) m[d.resource] = [];
+        if (!m[d.resource].includes(d.drift_type)) m[d.resource].push(d.drift_type);
+      }
+      setDriftMap(m);
+    }).catch(() => setDriftMap({}));
+  }, [resources]);
 
   const [collecting,setCollecting] = useState<Set<string>>(new Set());
   const [confirmDelete, setConfirmDelete] = useState<Provider | null>(null);
@@ -183,26 +206,43 @@ export default function VendorPage() {
     </Breadcrumb>
   ) : null;
 
+  const filteredProviders = providers.filter((p) => {
+    if (!provSearch.trim()) return true;
+    const q = provSearch.toLowerCase();
+    const searchable = [p.name, p.vendor, p.provider_type, p.endpoint, p.enabled ? 'enabled' : 'disabled', p.last_collection_status, p.infrastructure].filter(Boolean);
+    return searchable.some((s) => s.toLowerCase().includes(q));
+  });
+
   const ProvidersTable = (
     <>
       <Toolbar><ToolbarContent>
         <ToolbarItem><Button variant="primary" icon={<PlusCircleIcon />} onClick={() => setShowAdd(true)}>Add Provider</Button></ToolbarItem>
         <ToolbarItem><Button variant="plain" aria-label="Refresh" onClick={refreshProv}><SyncAltIcon /></Button></ToolbarItem>
+        <ToolbarItem style={{ flex: 1 }}>
+          <SearchInput
+            placeholder="Filter providers… (name, endpoint, status)"
+            value={provSearch}
+            onChange={(_e, v) => setProvSearch(v)}
+            onClear={() => setProvSearch('')}
+            aria-label="Filter providers"
+            style={{ maxWidth: '500px' }}
+          />
+        </ToolbarItem>
         <ToolbarItem align={{ default: 'alignRight' }}>
-          <span style={{ color: 'var(--pf-v5-global--Color--200)', fontSize: '0.875rem' }}>{providers.length} provider{providers.length !== 1 ? 's' : ''}</span>
+          <span style={{ color: 'var(--pf-v5-global--Color--200)', fontSize: '0.875rem' }}>{provSearch ? `${filteredProviders.length} of ${providers.length}` : `${providers.length}`} provider{filteredProviders.length !== 1 ? 's' : ''}</span>
         </ToolbarItem>
       </ToolbarContent></Toolbar>
       {provLoading && !provData ? <Bullseye style={{ padding: '3rem' }}><Spinner size="xl" /></Bullseye>
-        : providers.length === 0 ? (
-          <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--pf-v5-global--Color--200)' }}>No {vendorName} providers configured. <Button variant="link" isInline onClick={() => setShowAdd(true)}>Add one now</Button></div>
+        : filteredProviders.length === 0 ? (
+          <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--pf-v5-global--Color--200)' }}>{provSearch ? 'No providers match that filter.' : `No ${vendorName} providers configured.`} <Button variant="link" isInline onClick={() => setShowAdd(true)}>Add one now</Button></div>
         ) : (
           <Table aria-label={vendorName + ' providers'} variant="compact">
-            <Thead><Tr><Th>Name</Th><Th>Endpoint</Th><Th>Status</Th><Th>Last Collection</Th><Th>Schedules</Th><Th screenReaderText="Graph" /><Th screenReaderText="Actions" /></Tr></Thead>
+            <Thead><Tr><Th>Name</Th><Th>Resources</Th><Th>Status</Th><Th>Last Collection</Th><Th>Schedules</Th><Th screenReaderText="Graph" /><Th screenReaderText="Actions" /></Tr></Thead>
             <Tbody>
-              {providers.map((p) => (
+              {filteredProviders.map((p) => (
                 <Tr key={p.id} style={{ cursor: 'pointer' }} onRowClick={() => { setDrillProvider(p); setView('resources'); }}>
                   <Td dataLabel="Name"><strong>{p.name}</strong></Td>
-                  <Td dataLabel="Endpoint"><code style={{ fontSize: '0.8rem' }}>{p.endpoint}</code></Td>
+                  <Td dataLabel="Resources">{p.resource_count ?? 0}</Td>
                   <Td dataLabel="Status"><Label isCompact color={p.enabled ? 'green' : 'grey'}>{p.enabled ? 'Enabled' : 'Disabled'}</Label></Td>
                   <Td dataLabel="Last Collection">{p.last_collection_status ? <Label isCompact color={statusColor(p.last_collection_status)}>{p.last_collection_status}</Label> : <span style={{ color: 'var(--pf-v5-global--Color--200)', fontSize: '0.85rem' }}>Never</span>}</Td>
                   <Td dataLabel="Schedules">{(p.schedule_count ?? 0) > 0 ? <Label isCompact color="blue" icon={<CalendarAltIcon />}>{p.schedule_count} schedule{p.schedule_count !== 1 ? 's' : ''}</Label> : <span style={{ color: 'var(--pf-v5-global--Color--200)', fontSize: '0.85rem' }}>None</span>}</Td>
@@ -215,6 +255,21 @@ export default function VendorPage() {
         )}
     </>
   );
+
+
+  // Spotlight filter for resources — matches across all visible fields
+  const filteredResources = resources.filter((r) => {
+    if (!resSearch.trim()) return true;
+    const q = resSearch.toLowerCase();
+    const searchable = [
+      r.name, r.vendor_type, r.resource_type_slug, r.state, r.power_state,
+      r.region, r.provider_name, r.os_name, r.os_type, r.fqdn, r.flavor,
+      r.cloud_tenant, r.availability_zone,
+      ...(r.ip_addresses ?? []),
+      ...(r.tags ?? []).map((t) => t.key + '=' + (t.value ?? '')),
+    ].filter(Boolean);
+    return searchable.some((s) => s!.toLowerCase().includes(q));
+  });
 
   const ResourcesTable = (
     <>
@@ -233,18 +288,28 @@ export default function VendorPage() {
           </ToolbarItem>
         )}
         <ToolbarItem><Button variant="plain" aria-label="Refresh" onClick={() => loadResources(drillProvider?.id)}><SyncAltIcon /></Button></ToolbarItem>
-        <ToolbarItem align={{ default: 'alignRight' }}><span style={{ color: 'var(--pf-v5-global--Color--200)', fontSize: '0.875rem' }}>{resources.length} resource{resources.length !== 1 ? 's' : ''}{drillProvider && <> on <strong>{drillProvider.name}</strong></>}</span></ToolbarItem>
+        <ToolbarItem style={{ flex: 1 }}>
+          <SearchInput
+            placeholder="Filter resources… (name, type, IP, OS, tags, region, provider)"
+            value={resSearch}
+            onChange={(_e, v) => setResSearch(v)}
+            onClear={() => setResSearch('')}
+            aria-label="Filter resources"
+            style={{ maxWidth: '500px' }}
+          />
+        </ToolbarItem>
+        <ToolbarItem align={{ default: 'alignRight' }}><span style={{ color: 'var(--pf-v5-global--Color--200)', fontSize: '0.875rem' }}>{resSearch ? `${filteredResources.length} of ${resources.length}` : `${resources.length}`} resource{filteredResources.length !== 1 ? 's' : ''}{drillProvider && <> on <strong>{drillProvider.name}</strong></>}</span></ToolbarItem>
       </ToolbarContent></Toolbar>
       {resError && <Alert variant="danger" isInline title={resError} style={{ marginBottom: '1rem' }} />}
       {resLoading ? <Bullseye style={{ padding: '3rem' }}><Spinner size="xl" /></Bullseye>
-        : resources.length === 0 ? <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--pf-v5-global--Color--200)' }}>No resources found. Run a collection first.</div>
+        : filteredResources.length === 0 ? <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--pf-v5-global--Color--200)' }}>{resSearch ? 'No resources match that filter.' : 'No resources found. Run a collection first.'}</div>
         : (
           <Table aria-label="Resources" variant="compact">
-            <Thead><Tr><Th>Name</Th><Th>Tags</Th><Th>Provider</Th><Th>State</Th><Th>Power</Th><Th>Region</Th><Th screenReaderText="Actions" /></Tr></Thead>
+            <Thead><Tr><Th>Name</Th><Th>Tags</Th><Th>Drift</Th><Th>State</Th><Th>Power</Th><Th>Region</Th><Th screenReaderText="Actions" /></Tr></Thead>
             <Tbody>
-              {resources.map((r) => (
+              {filteredResources.map((r) => (
                 <Tr key={r.id}>
-                  <Td dataLabel="Name"><strong>{r.name}</strong></Td>
+                  <Td dataLabel="Name"><Button variant="link" isInline onClick={() => navigate('/resources/' + r.id)} style={{ fontWeight: 600 }}>{r.name}</Button></Td>
                   <Td dataLabel="Tags">
                     {(r.tags ?? []).length === 0
                       ? <span style={{ fontSize: '0.8rem', color: 'var(--pf-v5-global--Color--200)' }}>&#x2014;</span>
@@ -252,23 +317,26 @@ export default function VendorPage() {
                           {(r.tags ?? []).map(t => (
                             <Label key={t.id} isCompact
                               color={
-                                t.namespace === 'type' && t.key === 'category' ? 'blue' :
-                                t.namespace === 'type' && t.key === 'resource_type' ? 'cyan' :
-                                t.namespace === 'type' && t.key === 'infrastructure' ? 'purple' : 'grey'
+                                t.namespace === 'type' && t.key === 'infrastructure_bucket' ? 'blue' :
+                                t.namespace === 'type' && t.key === 'device_type' ? 'cyan' :
+                                t.namespace === 'type' && t.key === 'infrastructure_type' ? 'purple' : 'grey'
                               }>
                               {t.value ? t.key + '=' + t.value : t.key}
                             </Label>
                           ))}
                         </LabelGroup>}
                   </Td>
-                  <Td dataLabel="Provider" style={{ fontSize: '0.8rem', color: 'var(--pf-v5-global--Color--200)' }}>{r.provider_name}</Td>
+                  <Td dataLabel="Drift">{driftMap[r.id] ? <DriftLabel driftTypes={driftMap[r.id] as any} onClick={() => navigate('/resources/' + r.id + '/drift')} /> : <span style={{ fontSize: '0.8rem', color: 'var(--pf-v5-global--Color--200)' }}>—</span>}</Td>
                   <Td dataLabel="State">{r.state || '\u2014'}</Td>
                   <Td dataLabel="Power">{r.power_state ? <Label isCompact color={r.power_state === 'on' ? 'green' : 'grey'}>{r.power_state}</Label> : '\u2014'}</Td>
                   <Td dataLabel="Region" style={{ fontSize: '0.8rem' }}>{r.region || '\u2014'}</Td>
                   <Td isActionCell>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                       <ProviderGraphModal providerId={r.provider} providerName={r.provider_name} resourceId={r.id} resourceName={r.name} />
-                      <ActionsColumn items={[{ title: 'Manage Tags', onClick: () => setTagEditorResource(r) }]} />
+                      <ActionsColumn items={[
+                        { title: 'Add to Watchlist', onClick: () => { setWatchlistResourceIds([r.id]); setShowAddToWatchlist(true); } },
+                        { title: 'Manage Tags', onClick: () => setTagEditorResource(r) },
+                      ]} />
                     </div>
                   </Td>
                 </Tr>
@@ -371,6 +439,11 @@ export default function VendorPage() {
         )}
       </Modal>
       {TagEditorModal}
+      <AddToWatchlistModal
+        isOpen={showAddToWatchlist}
+        resourceIds={watchlistResourceIds}
+        onClose={() => setShowAddToWatchlist(false)}
+      />
     </>
   );
 }

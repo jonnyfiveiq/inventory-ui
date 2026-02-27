@@ -112,6 +112,9 @@ export interface Resource {
   seen_count: number;
   deleted_at: string | null;
   is_deleted: boolean;
+  is_automated: boolean;
+  automation_count: number;
+  last_automated_at: string | null;
   organization: number;
   tags: Tag[];
 }
@@ -241,6 +244,29 @@ export interface CollectionSchedule {
   next_run_at: string | null;
   created_at: string;
   updated_at: string;
+}
+
+// ── Tags ──────────────────────────────────────────────────────────────────────
+export interface Tag {
+  id: string;
+  namespace: string;
+  key: string;
+  value: string;
+  organization: number;
+}
+
+// ── Watchlists ────────────────────────────────────────────────────────────────
+export interface Watchlist {
+  id: string;
+  name: string;
+  description: string;
+  watchlist_type: 'static' | 'dynamic';
+  filter_query: Record<string, unknown>;
+  organization: number;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  resource_count: number;
 }
 
 // ── API client ────────────────────────────────────────────────────────────────
@@ -401,4 +427,167 @@ export const api = {
       return json;
     });
   },
+
+  // Watchlists — full CRUD + resource membership
+  listWatchlists: (params?: string) =>
+    request<PaginatedResponse<Watchlist>>('/watchlists/' + (params ? '?' + params : '')),
+  getWatchlist: (id: string) =>
+    request<Watchlist>('/watchlists/' + id + '/'),
+  createWatchlist: (data: Partial<Watchlist>) =>
+    request<Watchlist>('/watchlists/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }),
+  updateWatchlist: (id: string, data: Partial<Watchlist>) =>
+    request<Watchlist>('/watchlists/' + id + '/', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }),
+  deleteWatchlist: (id: string) =>
+    request<void>('/watchlists/' + id + '/', { method: 'DELETE' }),
+  getWatchlistResources: (id: string, params?: string) =>
+    request<PaginatedResponse<Resource>>('/watchlists/' + id + '/resources/' + (params ? '?' + params : '')),
+  addToWatchlist: (id: string, resourceIds: string[]) =>
+    request<{ detail: string }>('/watchlists/' + id + '/resources/add/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resource_ids: resourceIds }),
+    }),
+  removeFromWatchlist: (id: string, resourceIds: string[]) =>
+    request<{ detail: string }>('/watchlists/' + id + '/resources/remove/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resource_ids: resourceIds }),
+    }),
+
+  // Automation Records - read-only
+  listAutomationRecords: (params?: string) =>
+    request<PaginatedResponse<AutomationRecord>>('/automation-records/' + (params ? '?' + params : '')),
+  getResourceAutomations: (resourceId: string, params?: string) =>
+    request<PaginatedResponse<AutomationRecord>>('/resources/' + resourceId + '/automations/' + (params ? '?' + params : '')),
+
+  // Metrics Imports
+  listMetricsImports: (params?: string) =>
+    request<PaginatedResponse<MetricsImportRecord>>('/metrics-imports/' + (params ? '?' + params : '')),
+  getMetricsImport: (id: string) =>
+    request<MetricsImportRecord>('/metrics-imports/' + id + '/'),
+  deleteMetricsImport: (id: string) =>
+    request<void>('/metrics-imports/' + id + '/', { method: 'DELETE' }),
+  uploadMetricsImport: (file: File, sourceLabel?: string): Promise<MetricsImportRecord> => {
+    const creds = localStorage.getItem('inventory_creds');
+    const headers: Record<string, string> = {};
+    if (creds) headers['Authorization'] = 'Basic ' + btoa(creds);
+    const body = new FormData();
+    body.append('file', file);
+    if (sourceLabel) body.append('source_label', sourceLabel);
+    return fetch(API_BASE + '/metrics-imports/upload/', {
+      method: 'POST',
+      headers,
+      body,
+    }).then(async (res) => {
+      const json = await res.json();
+      if (!res.ok) throw Object.assign(new Error(json.detail || res.statusText), { status: res.status, data: json });
+      return json;
+    });
+  },
+
+  // Pending Matches
+  listPendingMatches: (params?: string) =>
+    request<PaginatedResponse<PendingMatchRecord>>('/pending-matches/' + (params ? '?' + params : '')),
+  resolvePendingMatch: (id: string, action: 'approve' | 'reject' | 'ignore', resourceId?: string) =>
+    request<PendingMatchRecord>('/pending-matches/' + id + '/resolve/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, ...(resourceId ? { resource_id: resourceId } : {}) }),
+    }),
+  bulkResolvePendingMatches: (ids: string[], action: 'approve' | 'reject' | 'ignore') =>
+    request<{ resolved: number; errors: Array<{ id: string; error: string }> }>('/pending-matches/bulk-resolve/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids, action }),
+    }),
+
+  // Host Mappings
+  listHostMappings: (params?: string) =>
+    request<PaginatedResponse<HostMappingRecord>>('/host-mappings/' + (params ? '?' + params : '')),
+  deleteHostMapping: (id: string) =>
+    request<void>('/host-mappings/' + id + '/', { method: 'DELETE' }),
 };
+
+
+// ── Automation Records ────────────────────────────────────────────────────────
+export interface AutomationRecord {
+  id: string;
+  resource: string;
+  resource_name: string;
+  resource_canonical_id: string;
+  source_name: string;
+  correlation_type: 'direct' | 'indirect';
+  correlation_key: string;
+  correlation_confidence: 'exact' | 'probable';
+  aap_host_id: number | null;
+  aap_host_name: string;
+  aap_job_id: number;
+  aap_job_name: string;
+  aap_job_status: string;
+  aap_job_started_at: string | null;
+  aap_job_finished_at: string | null;
+  aap_inventory_name: string;
+  automation_details: Record<string, unknown>;
+  synced_at: string;
+  organization: number;
+}
+
+
+// ── Metrics Import ────────────────────────────────────────────────────────────
+export interface MetricsImportRecord {
+  id: string;
+  filename: string;
+  source_label: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  stats: {
+    csvs_found?: number;
+    total_csv_rows?: number;
+    unique_hosts?: number;
+    auto_matched?: number;
+    pending_review?: number;
+    unmatched?: number;
+    automation_records_created?: number;
+    learned_mapping_hits?: number;
+  };
+  error_log: string;
+  uploaded_at: string;
+  processed_at: string | null;
+  organization: number;
+  pending_count: number;
+  matched_count: number;
+}
+
+export interface PendingMatchRecord {
+  id: string;
+  metrics_import: string;
+  aap_host_name: string;
+  candidate_resource: string | null;
+  candidate_resource_name: string;
+  candidate_resource_type: string;
+  match_reason: string;
+  match_score: number;
+  status: 'pending' | 'approved' | 'rejected' | 'ignored';
+  resolved_resource: string | null;
+  resolved_resource_name: string;
+  raw_data: Record<string, unknown>;
+  created_at: string;
+  resolved_at: string | null;
+}
+
+export interface HostMappingRecord {
+  id: string;
+  aap_host_name: string;
+  source_label: string;
+  resource: string;
+  resource_name: string;
+  created_at: string;
+  organization: number;
+}
